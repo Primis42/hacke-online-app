@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: hacke-server
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGIN
+        value: https://deine-frontend-domain.vercel.app

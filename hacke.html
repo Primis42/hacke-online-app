@@ -1,0 +1,3821 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hacke – Kontostand & Pot</title>
+  <style>
+    :root {
+      --bg-deep: #10170f;
+      --bg-deeper: #080d08;
+      --wood-dark: #2c1b10;
+      --wood-mid: #5a3820;
+      --felt-main: #0f5a3e;
+      --felt-dark: #0a3f2c;
+      --panel: #13261d;
+      --panel-soft: #1a2f25;
+      --ink: #f4ecd9;
+      --muted: #c5baa5;
+      --line: #7b6948;
+      --gold: #d6b166;
+      --gold-soft: #e4cc98;
+      --red: #b3392f;
+      --shadow: rgba(0, 0, 0, 0.45);
+    }
+
+    body {
+      font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(214, 177, 102, 0.16), transparent 36%),
+        radial-gradient(circle at 82% 85%, rgba(111, 78, 55, 0.2), transparent 44%),
+        linear-gradient(145deg, var(--bg-deep), var(--bg-deeper));
+      color: var(--ink);
+      margin: 0;
+      padding: 20px 12px 28px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .app {
+      margin-top: 6px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), transparent 22%),
+        linear-gradient(135deg, #1b2c23, #0f1e17 55%, #0b1712);
+      border-radius: 20px;
+      border: 2px solid rgba(214, 177, 102, 0.38);
+      padding: 22px 24px;
+      box-shadow:
+        0 24px 48px var(--shadow),
+        0 0 0 1px rgba(0, 0, 0, 0.4) inset;
+      max-width: 1060px;
+      width: 100%;
+      box-sizing: border-box;
+      animation: appFadeIn 0.45s ease-out;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+      letter-spacing: 0.6px;
+      font-size: 1.85rem;
+      margin-bottom: 0.25rem;
+      color: var(--gold-soft);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+    }
+
+    .subtitle {
+      margin-bottom: 1.3rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .section-title {
+      margin-top: 1.15rem;
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      font-size: 0.95rem;
+      color: var(--gold-soft);
+    }
+
+    .label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 3px;
+      display: block;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 7px 9px;
+      border-radius: 10px;
+      border: 1px solid rgba(214, 177, 102, 0.35);
+      background: linear-gradient(180deg, #f5ecda, #e7dbc0);
+      color: #2c2418;
+      box-sizing: border-box;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(214, 177, 102, 0.35);
+    }
+
+    .card {
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: linear-gradient(165deg, rgba(36, 63, 49, 0.95), rgba(18, 34, 27, 0.95));
+      border: 1px solid rgba(214, 177, 102, 0.26);
+      margin-bottom: 12px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.22);
+    }
+
+    .grid-setup {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .grid-round {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .player-card {
+      border-radius: 12px;
+      padding: 8px 9px;
+      background: rgba(16, 35, 27, 0.92);
+      border: 1px solid rgba(214, 177, 102, 0.22);
+      font-size: 0.8rem;
+    }
+
+    .player-header {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--gold-soft);
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+    }
+
+    .row input[type="radio"],
+    .row input[type="checkbox"] {
+      transform: scale(0.9);
+      accent-color: #c89f4d;
+    }
+
+    button {
+      margin-top: 12px;
+      border-radius: 999px;
+      border: none;
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, #dfc17e, #b98a3b);
+      color: #2f1d10;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+      transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    button:hover:enabled { filter: brightness(1.05); transform: translateY(-1px); }
+    button:active:enabled { transform: translateY(1px); box-shadow: 0 6px 14px rgba(0,0,0,0.3); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+    button.full { width: 100%; }
+
+    .small-btn {
+      margin-top: 2px;
+      padding: 3px 6px;
+      font-size: 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(214, 177, 102, 0.35);
+      background: #243b30;
+      color: var(--ink);
+      box-shadow: none;
+      cursor: pointer;
+    }
+
+    .small-btn:hover { background: #2e4a3c; }
+
+    .output {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(10, 28, 20, 0.9);
+      border: 1px solid rgba(214, 177, 102, 0.22);
+      font-size: 0.85rem;
+      white-space: pre-line;
+    }
+
+    .output {
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      margin-top: 8px;
+    }
+
+    th, td {
+      border: 1px solid rgba(214, 177, 102, 0.26);
+      padding: 6px 8px;
+      text-align: right;
+    }
+
+    th {
+      background: rgba(17, 38, 29, 0.95);
+      font-weight: 600;
+      color: var(--gold-soft);
+      text-align: center;
+    }
+
+    tr:nth-child(even) td { background: rgba(16, 36, 27, 0.92); }
+    tr:nth-child(odd) td { background: rgba(11, 27, 20, 0.92); }
+
+    .flex-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(17, 63, 43, 0.95);
+      color: var(--gold-soft);
+      font-size: 0.75rem;
+      border: 1px solid rgba(214, 177, 102, 0.28);
+    }
+
+    .pill-phase {
+      background: rgba(19, 37, 29, 0.95);
+      color: var(--ink);
+      margin-left: 8px;
+    }
+
+    .scoreboard {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .score-pill {
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(14, 32, 24, 0.9);
+      border: 1px solid rgba(214, 177, 102, 0.22);
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .score-name { font-weight: 600; }
+
+    .score-balance {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .score-balance.positive { color: #77d986; }
+    .score-balance.negative { color: #f08773; }
+    .score-balance.zero { color: var(--ink); }
+
+    .buttons-row { display: flex; gap: 8px; margin-top: 8px; }
+    .buttons-row button { flex: 1; }
+    .online-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .online-actions button { flex: 1; }
+    .status-text { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+    .share-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .share-row input { flex: 1; }
+    .share-row button { margin-top: 0; }
+
+    .view-tabs { display: flex; gap: 8px; margin: 8px 0 12px 0; }
+
+    .tab-button {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid rgba(214, 177, 102, 0.28);
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: rgba(16, 34, 26, 0.95);
+      color: var(--ink);
+    }
+
+    .tab-button.active {
+      background: linear-gradient(135deg, #e3ca92, #bc8c3d);
+      color: #2f1d10;
+      border-color: transparent;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.26);
+    }
+
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+
+    .table-layout {
+      border-radius: 28px;
+      border: 2px solid rgba(214, 177, 102, 0.4);
+      background:
+        radial-gradient(circle at center, rgba(28, 106, 71, 0.88) 0%, rgba(15, 82, 55, 0.9) 45%, rgba(9, 58, 39, 0.96) 85%),
+        repeating-radial-gradient(circle at center, rgba(255,255,255,0.02) 0 2px, transparent 2px 7px);
+      padding: 16px;
+      min-height: 360px;
+      box-sizing: border-box;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.08),
+        inset 0 20px 45px rgba(255,255,255,0.04),
+        0 18px 30px rgba(0,0,0,0.25);
+      animation: tableRise 0.45s ease-out;
+    }
+
+    .table-top-row,
+    .table-bottom-row {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .table-center-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .table-center-info {
+      flex: 1;
+      min-width: 220px;
+      max-width: 320px;
+      border-radius: 16px;
+      background: rgba(20, 44, 33, 0.9);
+      border: 1px solid rgba(214, 177, 102, 0.28);
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .table-center-info h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.9rem;
+    }
+
+    .table-center-info .small-label {
+      font-size: 0.75rem;
+      color: #d8ccb5;
+    }
+
+    .table-center-info .big-value {
+      margin-top: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .table-player-box {
+      border-radius: 14px;
+      padding: 6px 8px;
+      background: rgba(19, 43, 32, 0.92);
+      border: 1px solid rgba(214, 177, 102, 0.24);
+      min-width: 150px;
+      max-width: 190px;
+      font-size: 0.8rem;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .table-player-box.active-turn {
+      border-color: #e4cc98;
+      box-shadow: 0 0 0 2px rgba(228, 204, 152, 0.55), 0 8px 18px rgba(0,0,0,0.28);
+      transform: translateY(-2px);
+    }
+
+    .tp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .tp-name { font-weight: 600; }
+    .tp-role { font-size: 0.7rem; color: #d8ccb5; }
+    .tp-balance { font-size: 0.75rem; color: #d8ccb5; margin-bottom: 2px; }
+    .tp-tricks { font-size: 0.75rem; color: #d8ccb5; margin-bottom: 4px; }
+    .tp-cards { display: flex; gap: 4px; flex-wrap: nowrap; }
+
+    .card-small {
+      position: relative;
+      width: 48px;
+      height: 68px;
+      border-radius: 8px;
+      border: 1px solid #d7c6a2;
+      background: linear-gradient(180deg, #fffdf7, #efe6d0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      box-sizing: border-box;
+      color: #1d1d1a;
+      cursor: default;
+      text-align: center;
+      padding: 2px;
+      box-shadow: 0 3px 7px rgba(0,0,0,0.24);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .card-small.red { color: #b3392f; border-color: #cf9a91; background: linear-gradient(180deg, #fffaf7, #f8ddd8); }
+    .card-small.black { color: #202520; border-color: #b6bba9; background: linear-gradient(180deg, #fffdf8, #ece9dc); }
+    .card-small.empty { border-style: dashed; color: #9da68f; background: rgba(10, 42, 28, 0.6); box-shadow: none; }
+    .card-small.back {
+      background:
+        linear-gradient(135deg, #7f1720, #a72731),
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.09) 0 2px, transparent 2px 5px);
+      border-color: #d7a0a7;
+      color: #f9ecee;
+      font-size: 0.65rem;
+    }
+
+    .card-rank { position: absolute; font-size: 0.7rem; }
+    .card-rank.top-left { top: 2px; left: 3px; }
+    .card-rank.bottom-right { bottom: 2px; right: 3px; transform: rotate(180deg); }
+    .card-suit { font-size: 1rem; }
+
+    .card-small.selected { box-shadow: 0 0 0 2px #e4cc98, 0 8px 14px rgba(0,0,0,0.28); border-color: #e4cc98; transform: translateY(-2px); }
+
+    .mod-log {
+      margin-top: 4px;
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 0.78rem;
+      background: rgba(9, 30, 21, 0.78);
+      border-radius: 8px;
+      border: 1px solid rgba(214, 177, 102, 0.22);
+      padding: 6px 8px;
+      white-space: pre-line;
+    }
+
+    /* Modal */
+    #modalOverlay{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.65);
+      z-index:9999;
+      align-items:center;
+      justify-content:center;
+    }
+
+    #modalOverlay > div {
+      border: 1px solid rgba(214, 177, 102, 0.35);
+      background: linear-gradient(180deg, #12241b, #0d1b15);
+      color: var(--ink);
+    }
+
+    @keyframes appFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes tableRise {
+      from { opacity: 0; transform: translateY(6px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 10px 8px 18px; }
+      .app { padding: 16px 14px; border-radius: 16px; }
+      h1 { font-size: 1.45rem; }
+      .table-layout { border-radius: 18px; padding: 10px; }
+      .table-top-row, .table-bottom-row { gap: 10px; margin-bottom: 10px; }
+      .table-center-row { gap: 10px; justify-content: center; }
+      .table-player-box { min-width: 136px; max-width: 170px; }
+      .card-small { width: 42px; height: 60px; font-size: 0.7rem; }
+      .buttons-row { flex-direction: column; }
+      .online-actions { flex-direction: column; }
+      .share-row { flex-direction: column; align-items: stretch; }
+      .view-tabs { gap: 6px; }
+      .tab-button { font-size: 0.8rem; padding: 6px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Hacke – Kontostand & Pot</h1>
+    <div class="subtitle">
+      Flow: Karten geben → Trumpf / Blind-/10er-Hack → Karten offen → Hacker & Mitgeher → Tausch → Stichrunde → Auswertung.
+    </div>
+
+    <!-- SETUP -->
+    <div id="setup">
+      <div class="card">
+        <div class="section-title">Einstellungen</div>
+        <div class="grid-setup">
+          <div>
+            <label class="label" for="baseStake">Grundeinsatz pro Spieler (Fr.)</label>
+            <input type="number" id="baseStake" value="1" min="1" step="1" />
+          </div>
+          <div>
+            <label class="label" for="numPlayers">Anzahl Spieler</label>
+            <select id="numPlayers">
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Spielernamen</div>
+        <div id="playerNameContainer"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Online (Beta)</div>
+        <label class="row" style="margin-bottom:8px;">
+          <input id="onlineEnabled" type="checkbox" />
+          <span>Online-Modus aktivieren</span>
+        </label>
+        <div class="grid-setup">
+          <div>
+            <label class="label" for="onlineServerUrl">Server URL</label>
+            <input id="onlineServerUrl" type="text" placeholder="z. B. https://hacke-server.onrender.com" />
+          </div>
+          <div>
+            <label class="label" for="onlinePlayerName">Dein Name (Online)</label>
+            <input id="onlinePlayerName" type="text" placeholder="z. B. Yael" />
+          </div>
+        </div>
+        <div class="grid-setup">
+          <div>
+            <label class="label" for="onlineRoomCode">Raum-Code (bei Join)</label>
+            <input id="onlineRoomCode" type="text" placeholder="z. B. AB12CD" />
+          </div>
+          <div class="status-text" id="onlineRoomInfo">Noch kein Raum verbunden.</div>
+        </div>
+        <div class="online-actions">
+          <button type="button" onclick="createOnlineRoom()">Raum erstellen</button>
+          <button type="button" onclick="joinOnlineRoom()">Raum beitreten</button>
+        </div>
+        <div class="status-text" id="onlineStatus">Status: Offline</div>
+        <div class="share-row">
+          <input id="onlineShareLink" type="text" readonly placeholder="Share-Link erscheint nach Raumerstellung" />
+          <button type="button" onclick="copyOnlineShareLink()">Link kopieren</button>
+        </div>
+      </div>
+
+      <button class="full" onclick="startGame()">Spiel starten</button>
+      <div id="setupError" class="output" style="display:none;"></div>
+    </div>
+
+    <!-- GAME -->
+    <div id="game" style="display:none;">
+      <div class="card">
+        <div class="flex-between">
+          <div class="section-title">Aktueller Stand</div>
+          <div>
+            <span class="pill" id="currentPotInfo">Pot: –</span>
+            <span class="pill pill-phase" id="phaseIndicator">Phase: –</span>
+          </div>
+        </div>
+        <div class="scoreboard" id="scoreboard"></div>
+      </div>
+
+      <div class="view-tabs">
+        <button id="tab-admin" class="tab-button active" onclick="switchView('admin')">Verwaltung</button>
+        <button id="tab-table" class="tab-button" onclick="switchView('table')">Spieltisch</button>
+      </div>
+
+      <!-- VERWALTUNG -->
+      <div id="view-admin" class="view-section active">
+        <div class="card">
+          <div class="flex-between">
+            <div class="section-title">Aktuelle Runde</div>
+            <div class="pill" id="currentPotInfo2">Pot: –</div>
+          </div>
+
+          <div class="grid-setup" style="margin-top:8px;">
+            <div>
+              <label class="label" for="trumpSuit">Trumpf-Farbe (optional manuell)</label>
+              <select id="trumpSuit" onchange="updateTrumpFromInputs()">
+                <option value="">– keine –</option>
+                <option value="herz">Herz</option>
+                <option value="kreuz">Kreuz</option>
+                <option value="schaufel">Schaufel</option>
+                <option value="egge">Egge</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="trumpRank">Trumpf-Rang (optional manuell)</label>
+              <select id="trumpRank" onchange="updateTrumpFromInputs()">
+                <option value="">– keiner –</option>
+                <option value="A">Ass</option>
+                <option value="K">König</option>
+                <option value="D">Dame</option>
+                <option value="B">Bube</option>
+                <option value="10">10</option>
+                <option value="9">9</option>
+                <option value="8">8</option>
+                <option value="7">7</option>
+                <option value="6">6</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="label" style="margin-top:8px;">Hacker, Mitgeher und Stiche (Stiche werden nach der Stichrunde automatisch befüllt):</div>
+          <div id="roundPlayerContainer" class="grid-round"></div>
+          <button class="full" onclick="berechneRunde()">Runde auswerten</button>
+          <div id="roundInfo" class="output"></div>
+        </div>
+
+        <div class="section-title" style="margin-top:16px;">Rundenübersicht (Kontostände)</div>
+        <table>
+          <thead>
+            <tr id="history-header-row"></tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+
+        <div class="buttons-row">
+          <button onclick="resetGame()">Neues Spiel</button>
+          <button onclick="endGame()">Spiel beenden</button>
+        </div>
+
+        <div id="endSummary" class="output" style="display:none; margin-top:10px;"></div>
+      </div>
+
+      <!-- SPIELTISCH -->
+      <div id="view-table" class="view-section">
+        <div class="table-layout">
+          <div class="table-top-row" id="table-top-row"></div>
+
+          <div class="table-center-row">
+            <div class="table-center-info">
+              <h3>Pot & Trumpf</h3>
+              <div class="small-label">Aktueller Pot</div>
+              <div class="big-value" id="table-pot-display">– Fr.</div>
+
+              <div class="small-label" style="margin-top:6px;">Trumpfkarte</div>
+              <div style="margin-top:4px; display:flex; gap:6px; align-items:center;">
+                <div id="trump-card-slot" class="card-small empty"></div>
+                <span style="font-size:0.8rem; color:#9ca3af;" id="trump-text-hint">
+                  „Karten geben (neu)“: Trumpf wird automatisch gezogen (10er-Hacken bei einfachem/doppeltem Pot).
+                </span>
+              </div>
+
+              <div class="small-label" style="margin-top:6px;">Aktueller Stich</div>
+              <div id="current-trick-cards" style="margin-top:4px; display:flex; gap:4px;"></div>
+            </div>
+
+            <div class="table-center-info">
+              <h3>Aktionen (Phasen)</h3>
+              <div class="small-label" id="flowHint">
+                1️⃣ Karten geben → 2️⃣ Blind-/10er-Hack → 3️⃣ Hacker/Mit/Pass → 4️⃣ Tausch → 5️⃣ Stiche.
+              </div>
+
+              <button id="btn-deal" class="full" style="margin-top:8px;" onclick="dealNewRound()">Karten geben (neu)</button>
+              <button id="btn-reveal" class="full" style="margin-top:8px;" onclick="revealAllHands()">Karten aufdecken (niemand blind)</button>
+              <button id="btn-next-trump" class="full" style="margin-top:8px;" onclick="nextTrump()">Nächsten Trumpf (max. 3)</button>
+              <button id="btn-exchange" class="full" style="margin-top:8px;" onclick="executeExchange()">Tausch ausführen (markierte Karten)</button>
+              <button id="btn-start-tricks" class="full" style="margin-top:8px;" onclick="startTrickPhase()">Stichrunde starten</button>
+              <button id="btn-prompt" class="full" style="margin-top:8px;" onclick="promptHackMitPassSequence()">Spieler fragen (Hack/Mit/Pass)</button>
+
+              <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+                <label style="display:flex; gap:8px; align-items:center; font-size:0.8rem; color:#cbd5e1;">
+                  <input id="autopilotToggle" type="checkbox" onchange="onToggleAutopilot()" />
+                  Autopilot
+                </label>
+                <span style="font-size:0.75rem; color:#9ca3af;">
+                  führt Blind-Hack → Hack → Mitgehen automatisch per Popup
+                </span>
+              </div>
+
+              <div class="small-label" style="margin-top:10px;">Moderation</div>
+              <div id="moderatorLog" class="mod-log"></div>
+            </div>
+          </div>
+
+          <div class="table-bottom-row" id="table-bottom-row"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IN-APP MODAL -->
+  <div id="modalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center; flex-direction:column;">
+    <div style="width:min(520px, 95vw); max-height:90vh; background:#020617; border:1px solid #1f2937; border-radius:16px; padding:20px; box-shadow:0 20px 60px rgba(0,0,0,0.8); overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:16px;">
+        <div>
+          <div id="modalTitle" style="font-weight:700; font-size:1.1rem;">Entscheidung</div>
+          <div id="modalSubtitle" style="color:#9ca3af; font-size:0.85rem; margin-top:2px;">—</div>
+        </div>
+        <button class="small-btn" type="button" onclick="closeModal()">X</button>
+      </div>
+
+      <!-- Trump-Anzeige (oben) -->
+      <div style="margin-bottom:16px; display:flex; gap:12px; align-items:center; justify-content:center; padding:12px; background:#1f2937; border-radius:8px;">
+        <div id="modalTrumpCard" class="card-small empty"></div>
+        <div style="font-size:0.95rem; color:#cbd5e1;" id="modalTrumpText">Trumpf: —</div>
+      </div>
+
+      <!-- Spieler-Hände (für Hack-Frage) -->
+      <div id="modalPlayerHands" style="margin-bottom:16px; display:none; background:#1f2937; padding:12px; border-radius:8px;">
+      </div>
+
+      <!-- Buttons -->
+      <div id="modalButtons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px;"></div>
+    </div>
+  </div>
+
+  <script src="app-config.js"></script>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script>
+    const STORAGE_KEY = 'hackeScoreState';
+    const ONLINE_PREFS_KEY = 'hackeOnlinePrefs';
+
+    let players = [];
+    let baseStake = 1;
+    let pot = 0;
+    let roundNumber = 0;
+
+    // nur für aktuelle Runde / Kartenlogik (nicht persistent gespeichert)
+    let trumpSuit = null;
+    let trumpRank = null;
+    let trumpCardObj = null;
+    let trumpDrawCount = 0;
+
+    let deck = [];
+    const SUITS = ['herz','egge','kreuz','schaufel']; // Sortierreihenfolge
+    const RANKS = ['6','7','8','9','10','B','D','K','A'];
+
+    let phase = 'idle';
+    let cardsFaceDown = false;
+    let blindHackerId = null;
+    let dealerIndex = -1;
+    let tenHackForced = false;
+
+    let fixedHackerId = null;
+
+    // Autopilot
+    window.autopilot = false;
+    let autopilotLock = false;
+
+    // Tausch
+    let modeExchange = false;
+    let exchangePlayerId = null;
+    let selectedForExchange = new Set();
+    let exchangeQueue = [];
+    let exchangeQueueIndex = 0;
+
+    // Stiche
+    let tricks = {};
+    let currentTrick = [];
+    let activePlayerIds = [];
+    let currentActiveIndex = 0;
+    let tricksPlayed = 0;
+
+    // History für Speicherung
+    let historyRows = [];
+
+    // Online-Sync (Beta)
+    const online = {
+      enabled: false,
+      socket: null,
+      connected: false,
+      roomCode: '',
+      playerName: '',
+      serverUrl: '',
+      isApplyingRemote: false,
+      lastSnapshotHash: '',
+      lastSentAt: 0
+    };
+
+    function getQueryParam(name) {
+      try {
+        return new URLSearchParams(window.location.search).get(name);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function readOnlinePrefs() {
+      try {
+        const raw = localStorage.getItem(ONLINE_PREFS_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveOnlinePrefs() {
+      try {
+        const data = {
+          enabled: !!document.getElementById('onlineEnabled')?.checked,
+          serverUrl: normalizeServerUrl(document.getElementById('onlineServerUrl')?.value || ''),
+          playerName: (document.getElementById('onlinePlayerName')?.value || '').trim(),
+          roomCode: (document.getElementById('onlineRoomCode')?.value || '').toUpperCase().trim()
+        };
+        localStorage.setItem(ONLINE_PREFS_KEY, JSON.stringify(data));
+      } catch (e) {}
+    }
+
+    function getDefaultServerUrl() {
+      const qServer = getQueryParam('server');
+      if (qServer) return normalizeServerUrl(qServer);
+
+      const byConfig = (window.HACKE_DEFAULT_SERVER_URL || '').trim();
+      if (byConfig) return normalizeServerUrl(byConfig);
+
+      const prefs = readOnlinePrefs();
+      if (prefs && prefs.serverUrl) return normalizeServerUrl(prefs.serverUrl);
+
+      return 'http://localhost:3000';
+    }
+
+    function setOnlineStatus(msg, isError = false) {
+      const el = document.getElementById('onlineStatus');
+      if (!el) return;
+      el.textContent = `Status: ${msg}`;
+      el.style.color = isError ? '#f08773' : '';
+    }
+
+    function setOnlineRoomInfo(msg) {
+      const el = document.getElementById('onlineRoomInfo');
+      if (!el) return;
+      el.textContent = msg || 'Noch kein Raum verbunden.';
+    }
+
+    function normalizeServerUrl(raw) {
+      const input = String(raw || '').trim();
+      if (!input) return 'http://localhost:3000';
+      return input.replace(/\/+$/, '');
+    }
+
+    function buildShareLink(serverUrl, roomCode) {
+      const code = String(roomCode || '').toUpperCase().trim();
+      if (!code) return '';
+      const playerName = (document.getElementById('onlinePlayerName')?.value || '').trim();
+
+      let baseUrl = '';
+
+      const isFileMode = window.location.protocol === 'file:';
+      if (isFileMode) {
+        // Bei file:///... kann der Link nur über einen lokalen HTTP-Server geteilt werden.
+        // Dafür den Host aus der Online-Server-URL verwenden (Port 3000 -> 8080).
+        try {
+          const srv = new URL(normalizeServerUrl(serverUrl));
+          baseUrl = `${srv.protocol}//${srv.hostname}:8080/hacke.html`;
+        } catch (e) {
+          baseUrl = 'http://localhost:8080/hacke.html';
+        }
+      } else {
+        const shareOrigin = window.location.origin;
+        const path = window.location.pathname || '/hacke.html';
+        baseUrl = `${shareOrigin}${path}`;
+      }
+
+      const u = new URL(baseUrl);
+      u.searchParams.set('room', code);
+      u.searchParams.set('server', normalizeServerUrl(serverUrl));
+      if (playerName) u.searchParams.set('name', playerName);
+      return u.toString();
+    }
+
+    function refreshShareLink() {
+      const input = document.getElementById('onlineShareLink');
+      if (!input) return;
+      const serverUrl = document.getElementById('onlineServerUrl')?.value || '';
+      const roomCode = document.getElementById('onlineRoomCode')?.value || '';
+      const link = buildShareLink(serverUrl, roomCode);
+      input.value = link || '';
+    }
+
+    async function copyOnlineShareLink() {
+      const input = document.getElementById('onlineShareLink');
+      if (!input || !input.value) {
+        setOnlineStatus('Kein Share-Link vorhanden. Zuerst Raum erstellen.', true);
+        return;
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(input.value);
+        } else {
+          input.select();
+          document.execCommand('copy');
+        }
+        setOnlineStatus('Share-Link kopiert.');
+      } catch (e) {
+        setOnlineStatus('Kopieren fehlgeschlagen. Link manuell kopieren.', true);
+      }
+    }
+
+    function ensureOnlineSocket() {
+      if (!window.io) {
+        setOnlineStatus('Socket.IO Client fehlt (CDN nicht geladen).', true);
+        return false;
+      }
+      return true;
+    }
+
+    function connectOnlineSocket(serverUrl) {
+      if (!ensureOnlineSocket()) return null;
+
+      const url = normalizeServerUrl(serverUrl);
+      if (online.socket && online.serverUrl === url) return online.socket;
+
+      if (online.socket) {
+        try { online.socket.disconnect(); } catch (e) {}
+      }
+
+      online.serverUrl = url;
+
+      const buildSocket = (pollingOnly = false) => io(url, {
+        transports: pollingOnly ? ['polling'] : ['websocket', 'polling']
+      });
+
+      let fallbackAttempted = false;
+      online.socket = buildSocket(false);
+
+      online.socket.on('connect', () => {
+        online.connected = true;
+        setOnlineStatus(`Verbunden (${online.socket.id})`);
+      });
+
+      online.socket.on('disconnect', () => {
+        online.connected = false;
+        setOnlineStatus('Verbindung getrennt', true);
+      });
+
+      online.socket.on('connect_error', (err) => {
+        online.connected = false;
+        const msg = err?.message || 'unbekannt';
+        if (!fallbackAttempted) {
+          fallbackAttempted = true;
+          setOnlineStatus(`WebSocket fehlgeschlagen (${msg}) – versuche HTTP-Polling...`, true);
+          try { online.socket.disconnect(); } catch (e) {}
+          online.socket = buildSocket(true);
+
+          online.socket.on('connect', () => {
+            online.connected = true;
+            setOnlineStatus(`Verbunden via HTTP-Polling (${online.socket.id})`);
+          });
+          online.socket.on('disconnect', () => {
+            online.connected = false;
+            setOnlineStatus('Verbindung getrennt', true);
+          });
+          online.socket.on('connect_error', (err2) => {
+            online.connected = false;
+            setOnlineStatus(`Verbindung fehlgeschlagen: ${err2?.message || 'unbekannt'}`, true);
+          });
+          online.socket.on('room:meta', (meta) => {
+            if (!meta) return;
+            const list = (meta.players || []).map(p => p.name).join(', ');
+            setOnlineRoomInfo(`Raum ${meta.code} | Spieler: ${list || '–'}`);
+          });
+          online.socket.on('state:update', (payload) => {
+            if (!payload || !payload.state) return;
+            if (payload.from && online.socket && payload.from === online.socket.id) return;
+            applyRuntimeState(payload.state, { fromRemote: true });
+          });
+          return;
+        }
+        setOnlineStatus(`Verbindung fehlgeschlagen: ${msg}`, true);
+      });
+
+      online.socket.on('room:meta', (meta) => {
+        if (!meta) return;
+        const list = (meta.players || []).map(p => p.name).join(', ');
+        setOnlineRoomInfo(`Raum ${meta.code} | Spieler: ${list || '–'}`);
+      });
+
+      online.socket.on('state:update', (payload) => {
+        if (!payload || !payload.state) return;
+        if (payload.from && online.socket && payload.from === online.socket.id) return;
+        applyRuntimeState(payload.state, { fromRemote: true });
+      });
+
+      return online.socket;
+    }
+
+    function getOnlineFormValues() {
+      const enabled = !!document.getElementById('onlineEnabled')?.checked;
+      const serverUrl = normalizeServerUrl(document.getElementById('onlineServerUrl')?.value);
+      const playerName = (document.getElementById('onlinePlayerName')?.value || '').trim();
+      const roomCode = (document.getElementById('onlineRoomCode')?.value || '').toUpperCase().trim();
+      return { enabled, serverUrl, playerName, roomCode };
+    }
+
+    function createOnlineRoom() {
+      const cfg = getOnlineFormValues();
+      if (!cfg.enabled) {
+        setOnlineStatus('Bitte zuerst Online-Modus aktivieren.', true);
+        return;
+      }
+      const socket = connectOnlineSocket(cfg.serverUrl);
+      if (!socket) return;
+
+      const finalName = cfg.playerName || 'Host';
+      online.playerName = finalName;
+
+      socket.emit('room:create', { playerName: finalName }, (res) => {
+        if (!res || !res.ok) {
+          setOnlineStatus(res?.error || 'Raum konnte nicht erstellt werden.', true);
+          return;
+        }
+        online.enabled = true;
+        const toggle = document.getElementById('onlineEnabled');
+        if (toggle) toggle.checked = true;
+        online.roomCode = res.roomCode;
+        document.getElementById('onlineRoomCode').value = res.roomCode;
+        refreshShareLink();
+        saveOnlinePrefs();
+        setOnlineRoomInfo(`Raum ${res.roomCode} erstellt.`);
+        setOnlineStatus(`Raum ${res.roomCode} aktiv.`);
+      });
+    }
+
+    function joinOnlineRoom() {
+      const cfg = getOnlineFormValues();
+      if (!cfg.enabled) {
+        setOnlineStatus('Bitte zuerst Online-Modus aktivieren.', true);
+        return;
+      }
+      if (!cfg.roomCode) {
+        setOnlineStatus('Bitte Raum-Code eintragen.', true);
+        return;
+      }
+      const socket = connectOnlineSocket(cfg.serverUrl);
+      if (!socket) return;
+
+      const finalName = cfg.playerName || 'Spieler';
+      online.playerName = finalName;
+
+      socket.emit('room:join', { roomCode: cfg.roomCode, playerName: finalName }, (res) => {
+        if (!res || !res.ok) {
+          setOnlineStatus(res?.error || 'Beitritt fehlgeschlagen.', true);
+          return;
+        }
+
+        online.enabled = true;
+        const toggle = document.getElementById('onlineEnabled');
+        if (toggle) toggle.checked = true;
+        online.roomCode = res.roomCode;
+        document.getElementById('onlineRoomCode').value = res.roomCode;
+        refreshShareLink();
+        saveOnlinePrefs();
+        setOnlineStatus(`Raum ${res.roomCode} beigetreten.`);
+        if (res.state) {
+          applyRuntimeState(res.state, { fromRemote: true });
+        }
+      });
+    }
+
+    function intVal(x) {
+      return Math.round(Number(x) || 0);
+    }
+
+    function splitEqual(total, count) {
+      const base = Math.floor(total / count);
+      const result = Array(count).fill(base);
+      let rest = total - base * count;
+      let i = 0;
+      while (rest > 0) {
+        result[i]++;
+        rest--;
+        i = (i + 1) % count;
+      }
+      return result;
+    }
+
+    function suitSymbol(suit) {
+      if (suit === 'herz') return '♥';
+      if (suit === 'egge') return '♦';
+      if (suit === 'kreuz') return '♣';
+      if (suit === 'schaufel') return '♠';
+      return '';
+    }
+
+    function suitNameDe(suit) {
+      if (suit === 'herz') return 'Herz';
+      if (suit === 'egge') return 'Egge';
+      if (suit === 'kreuz') return 'Kreuz';
+      if (suit === 'schaufel') return 'Schaufel';
+      return '';
+    }
+
+    function isRedSuit(suit) {
+      return suit === 'herz' || suit === 'egge';
+    }
+
+    function cardRankValue(rank) {
+      const order = { '6':0, '7':1, '8':2, '9':3, '10':4, 'B':5, 'D':6, 'K':7, 'A':8 };
+      return order[rank] ?? 0;
+    }
+
+    function suitOrder(suit) {
+      return SUITS.indexOf(suit);
+    }
+
+    function sortHand(hand) {
+      hand.sort((a, b) => {
+        const sDiff = suitOrder(a.suit) - suitOrder(b.suit);
+        if (sDiff !== 0) return sDiff;
+        return cardRankValue(a.rank) - cardRankValue(b.rank);
+      });
+    }
+
+    function buildDeck() {
+      const d = [];
+      SUITS.forEach(s => {
+        RANKS.forEach(r => {
+          d.push({ suit: s, rank: r });
+        });
+      });
+      return d;
+    }
+
+    function shuffleDeck(d) {
+      for (let i = d.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [d[i], d[j]] = [d[j], d[i]];
+      }
+    }
+
+    function addLog(msg) {
+      const log = document.getElementById('moderatorLog');
+      if (!log) return;
+      const t = new Date().toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+      const line = document.createElement('div');
+      line.textContent = `[${t}] ${msg}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function kickAutopilot() {
+      if (window.autopilot) setTimeout(runAutopilot, 50);
+    }
+
+    function setFlowHint(text) {
+      const el = document.getElementById('flowHint');
+      if (el) el.textContent = text;
+    }
+
+    function updatePhaseUI() {
+      const indicator = document.getElementById('phaseIndicator');
+      const btnDeal = document.getElementById('btn-deal');
+      const btnReveal = document.getElementById('btn-reveal');
+      const btnNextTrump = document.getElementById('btn-next-trump');
+      const btnExchange = document.getElementById('btn-exchange');
+      const btnStart = document.getElementById('btn-start-tricks');
+      const btnPrompt = document.getElementById('btn-prompt');
+
+      let text = '–';
+      let hint = '';
+
+      if (phase === 'idle') {
+        text = 'Phase: Warten / neue Runde';
+        hint = 'Nächster Schritt: „Karten geben (neu)“, damit eine neue Runde startet.';
+      } else if (phase === 'dealt_blind') {
+        text = 'Phase: Trumpf / Blind-/10er-Hack';
+        hint = 'Jetzt der Reihe nach fragen, ob jemand BLIND hacken will (Button „Spieler fragen“ oder Autopilot).';
+      } else if (phase === 'open_cards') {
+        text = 'Phase: Hacker/Mit/Pass + Tausch';
+        hint = 'Zuerst Hacker bestimmen (per Button oder Autopilot), dann Mitgeher und Tausch.';
+      } else if (phase === 'tricks') {
+        text = 'Phase: Stiche spielen';
+        hint = 'Karten in Stichreihenfolge ausspielen. Es werden max. 4 Stiche gespielt.';
+      } else if (phase === 'finished') {
+        text = 'Phase: Runde fertig (Auswertung)';
+        hint = 'In der Verwaltung „Runde auswerten“ klicken. Danach „Karten geben (neu)“ für nächste Runde.';
+      }
+
+      if (indicator) indicator.textContent = text;
+      setFlowHint(hint || '1️⃣ Karten geben → 2️⃣ Blind-/10er-Hack → 3️⃣ Hacker/Mit/Pass → 4️⃣ Tausch → 5️⃣ Stiche.');
+
+      if (btnDeal && btnReveal && btnNextTrump && btnExchange && btnStart && btnPrompt) {
+        if (phase === 'idle' || phase === 'finished') {
+          btnDeal.disabled = false;
+          btnReveal.disabled = true;
+          btnNextTrump.disabled = true;
+          btnExchange.disabled = true;
+          btnStart.disabled = true;
+          btnPrompt.disabled = true;
+        } else if (phase === 'dealt_blind') {
+          btnDeal.disabled = true;
+          btnReveal.disabled = false;
+          btnNextTrump.disabled = true;
+          btnExchange.disabled = true;
+          btnStart.disabled = true;
+          btnPrompt.disabled = false;
+        } else if (phase === 'open_cards') {
+          btnDeal.disabled = true;
+          btnReveal.disabled = true;
+          btnNextTrump.disabled = false;
+          btnExchange.disabled = false;
+          btnStart.disabled = false;
+          btnPrompt.disabled = false;
+        } else if (phase === 'tricks') {
+          btnDeal.disabled = true;
+          btnReveal.disabled = true;
+          btnNextTrump.disabled = true;
+          btnExchange.disabled = true;
+          btnStart.disabled = true;
+          btnPrompt.disabled = true;
+        }
+      }
+    }
+
+    function clearRolesAndStiches() {
+      players.forEach(p => {
+        const h = document.getElementById('hacker-' + p.id);
+        const m = document.getElementById('mit-' + p.id);
+        const roleSpan = document.getElementById('tp-role-' + p.id);
+        const st = document.getElementById('stich-' + p.id);
+
+        if (h) { h.checked = false; h.disabled = false; }
+        if (m) { m.checked = false; m.disabled = false; }
+        if (roleSpan) roleSpan.textContent = 'Rolle: –';
+        if (st) st.value = '0';
+      });
+      tenHackForced = false;
+      fixedHackerId = null;
+    }
+
+    function resetRoleInputsDisabled() {
+      players.forEach(p => {
+        const r = document.getElementById('hacker-' + p.id);
+        const m = document.getElementById('mit-' + p.id);
+        if (r) r.disabled = false;
+        if (m) m.disabled = false;
+      });
+      tenHackForced = false;
+      fixedHackerId = null;
+    }
+
+    function setFixedHacker(hackerId) {
+      fixedHackerId = hackerId;
+      players.forEach(p => {
+        const r = document.getElementById('hacker-' + p.id);
+        if (!r) return;
+        r.checked = (p.id === hackerId);
+        r.disabled = true;
+      });
+      updateRolesFromForm();
+    }
+
+    function initNameInputs() {
+      const num = intVal(document.getElementById('numPlayers').value || 4);
+      const container = document.getElementById('playerNameContainer');
+      container.innerHTML = '';
+
+      for (let i = 0; i < num; i++) {
+        const wrapper = document.createElement('div');
+        wrapper.style.marginBottom = '6px';
+
+        const label = document.createElement('label');
+        label.className = 'label';
+        label.textContent = `Spieler ${i + 1} – Name`;
+        wrapper.appendChild(label);
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'name-setup-' + i;
+        input.placeholder = `Spieler ${i + 1}`;
+        wrapper.appendChild(input);
+
+        container.appendChild(wrapper);
+      }
+    }
+
+    document.getElementById('numPlayers').addEventListener('change', initNameInputs);
+    initNameInputs();
+    setOnlineStatus('Offline');
+    setOnlineRoomInfo('Noch kein Raum verbunden.');
+    document.getElementById('onlineServerUrl').value = getDefaultServerUrl();
+    const onlinePrefs = readOnlinePrefs();
+    if (onlinePrefs && onlinePrefs.playerName && !document.getElementById('onlinePlayerName').value) {
+      document.getElementById('onlinePlayerName').value = onlinePrefs.playerName;
+    }
+    if (onlinePrefs && onlinePrefs.roomCode && !document.getElementById('onlineRoomCode').value) {
+      document.getElementById('onlineRoomCode').value = String(onlinePrefs.roomCode).toUpperCase();
+    }
+    if (onlinePrefs && onlinePrefs.enabled) {
+      document.getElementById('onlineEnabled').checked = true;
+      online.enabled = true;
+    }
+    refreshShareLink();
+    document.getElementById('onlineServerUrl').addEventListener('input', () => { refreshShareLink(); saveOnlinePrefs(); });
+    document.getElementById('onlineRoomCode').addEventListener('input', () => { refreshShareLink(); saveOnlinePrefs(); });
+    document.getElementById('onlinePlayerName').addEventListener('input', saveOnlinePrefs);
+    document.getElementById('onlineEnabled').addEventListener('change', (e) => {
+      online.enabled = !!e.target.checked;
+      saveOnlinePrefs();
+      if (!online.enabled) {
+        if (online.socket) {
+          try { online.socket.disconnect(); } catch (err) {}
+        }
+        online.socket = null;
+        online.connected = false;
+        online.roomCode = '';
+        online.lastSnapshotHash = '';
+        setOnlineStatus('Offline');
+        setOnlineRoomInfo('Noch kein Raum verbunden.');
+      }
+    });
+
+    window.addEventListener('load', () => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        const qServer = q.get('server');
+        const qRoom = q.get('room');
+        const qName = q.get('name');
+        if (qServer) document.getElementById('onlineServerUrl').value = normalizeServerUrl(qServer);
+        if (qRoom) {
+          document.getElementById('onlineRoomCode').value = String(qRoom).toUpperCase().trim();
+          document.getElementById('onlineEnabled').checked = true;
+          online.enabled = true;
+        }
+        if (qName) document.getElementById('onlinePlayerName').value = qName;
+        refreshShareLink();
+        saveOnlinePrefs();
+      } catch (e) {}
+    });
+
+    function startGame() {
+      const errorBox = document.getElementById('setupError');
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+
+      baseStake = intVal(document.getElementById('baseStake').value || 0);
+      if (baseStake <= 0) {
+        errorBox.style.display = 'block';
+        errorBox.textContent = 'Bitte einen gültigen Grundeinsatz (> 0) eingeben.';
+        return;
+      }
+
+      const onlineCfg = getOnlineFormValues();
+      online.enabled = !!onlineCfg.enabled;
+      if (online.enabled) {
+        if (!online.connected || !online.roomCode) {
+          errorBox.style.display = 'block';
+          errorBox.textContent = 'Online-Modus ist aktiv. Bitte zuerst einen Raum erstellen oder beitreten.';
+          return;
+        }
+      }
+
+      const num = intVal(document.getElementById('numPlayers').value || 4);
+      players = [];
+      for (let i = 0; i < num; i++) {
+        const input = document.getElementById('name-setup-' + i);
+        let name = input ? input.value.trim() : '';
+        if (!name) name = `Spieler ${i + 1}`;
+        players.push({ id: 'P' + i, name, balance: 0, hand: [] });
+      }
+
+      pot = 0;
+      players.forEach(p => {
+        p.balance -= baseStake;
+        pot += baseStake;
+      });
+
+      roundNumber = 0;
+      phase = 'idle';
+      cardsFaceDown = false;
+      trumpSuit = null;
+      trumpRank = null;
+      trumpCardObj = null;
+      trumpDrawCount = 0;
+      blindHackerId = null;
+      dealerIndex = -1;
+      tenHackForced = false;
+      tricks = {};
+      currentTrick = [];
+      activePlayerIds = [];
+      currentActiveIndex = 0;
+      tricksPlayed = 0;
+      modeExchange = false;
+      exchangePlayerId = null;
+      selectedForExchange = new Set();
+      exchangeQueue = [];
+      exchangeQueueIndex = 0;
+      fixedHackerId = null;
+      historyRows = [];
+
+      const log = document.getElementById('moderatorLog');
+      if (log) log.innerHTML = '';
+
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+
+      buildRoundPlayerUI();
+      resetRoleInputsDisabled();
+      buildHistoryHeader();
+      buildTableLayout();
+      updatePotDisplays();
+      updateScoreboard();
+      appendHistoryRow();
+      updateTrumpDisplay();
+      updateCurrentTrickDisplay();
+      updateTrickCountersUI();
+      updateCurrentTurnHighlight();
+      updatePhaseUI();
+
+      const names = players.map(p => p.name).join(', ');
+      addLog(`Spiel gestartet. Grundeinsatz ${baseStake} Fr. Spieler: ${names}.`);
+      document.getElementById('roundInfo').textContent =
+        'Spiel gestartet. Nächster Schritt: „Karten geben (neu)“ auf dem Spieltisch.';
+
+      saveState();
+      switchView('table');
+      syncRuntimeState();
+    }
+
+    function buildRoundPlayerUI() {
+      const container = document.getElementById('roundPlayerContainer');
+      container.innerHTML = '';
+
+      players.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'player-card';
+
+        const header = document.createElement('div');
+        header.className = 'player-header';
+        header.textContent = p.name;
+        card.appendChild(header);
+
+        const row1 = document.createElement('div');
+        row1.className = 'row';
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'hacker';
+        radio.id = 'hacker-' + p.id;
+        radio.value = p.id;
+        radio.addEventListener('change', () => onHackerRadioChange(p.id));
+        const labelH = document.createElement('label');
+        labelH.htmlFor = radio.id;
+        labelH.textContent = 'Hacker';
+        row1.appendChild(radio);
+        row1.appendChild(labelH);
+        card.appendChild(row1);
+
+        const row2 = document.createElement('div');
+        row2.className = 'row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = 'mit-' + p.id;
+        cb.addEventListener('change', () => onMitCheckboxChange(p.id));
+        const labelM = document.createElement('label');
+        labelM.htmlFor = cb.id;
+        labelM.textContent = 'Mitgehen';
+        row2.appendChild(cb);
+        row2.appendChild(labelM);
+        card.appendChild(row2);
+
+        const labelSt = document.createElement('label');
+        labelSt.className = 'label';
+        labelSt.textContent = 'Stiche (automatisch aus Stichrunde)';
+        card.appendChild(labelSt);
+
+        const inpSt = document.createElement('input');
+        inpSt.type = 'number';
+        inpSt.id = 'stich-' + p.id;
+        inpSt.min = '0';
+        inpSt.max = '4';
+        inpSt.value = '0';
+        card.appendChild(inpSt);
+
+        container.appendChild(card);
+      });
+    }
+
+    function onHackerRadioChange(playerId) {
+      const radio = document.getElementById('hacker-' + playerId);
+      if (!radio) return;
+
+      if (fixedHackerId && playerId !== fixedHackerId) {
+        radio.checked = false;
+        alert('Es wurde bereits ein Hacker festgelegt. Ein anderer Spieler kann nicht mehr hacken.');
+        return;
+      }
+
+      if (radio.checked) {
+        setPlayerDecision(playerId, 'hack');
+      }
+    }
+
+    function onMitCheckboxChange(playerId) {
+      setPlayerDecision(playerId, 'mit');
+    }
+
+    function buildHistoryHeader() {
+      const headerRow = document.getElementById('history-header-row');
+      headerRow.innerHTML = '';
+
+      players.forEach(p => {
+        const th = document.createElement('th');
+        th.textContent = p.name;
+        headerRow.appendChild(th);
+      });
+
+      const thPot = document.createElement('th');
+      thPot.textContent = 'Pot';
+      headerRow.appendChild(thPot);
+    }
+
+    function rebuildHistoryTable() {
+      const tbody = document.getElementById('history-body');
+      tbody.innerHTML = '';
+      historyRows.forEach(row => {
+        const tr = document.createElement('tr');
+        row.balances.forEach(val => {
+          const td = document.createElement('td');
+          td.textContent = String(val);
+          tr.appendChild(td);
+        });
+        const tdPot = document.createElement('td');
+        tdPot.textContent = String(row.pot);
+        tr.appendChild(tdPot);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updatePotDisplays() {
+      document.getElementById('currentPotInfo').textContent = `Pot: ${pot} Fr.`;
+      document.getElementById('currentPotInfo2').textContent = `Pot: ${pot} Fr.`;
+      document.getElementById('table-pot-display').textContent = `${pot} Fr.`;
+    }
+
+    function updateScoreboard() {
+      const sb = document.getElementById('scoreboard');
+      sb.innerHTML = '';
+
+      players.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'score-pill';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'score-name';
+        nameSpan.textContent = p.name;
+
+        const balSpan = document.createElement('span');
+        balSpan.className = 'score-balance';
+        if (p.balance > 0) balSpan.classList.add('positive');
+        else if (p.balance < 0) balSpan.classList.add('negative');
+        else balSpan.classList.add('zero');
+        balSpan.textContent = `${p.balance} Fr.`;
+
+        div.appendChild(nameSpan);
+        div.appendChild(balSpan);
+        sb.appendChild(div);
+      });
+
+      updateTableBalances();
+    }
+
+    /* ======= Abrechnung (dein bestehender Code) ======= */
+    /* (Unverändert – ab hier bis einschließlich determineTrickWinner bleibt funktional gleich) */
+
+    function berechneRunde() {
+      const infoBox = document.getElementById('roundInfo');
+      infoBox.textContent = '';
+      document.getElementById('endSummary').style.display = 'none';
+
+      if (!players.length) return;
+      const potRound = pot;
+      if (potRound <= 0) {
+        infoBox.textContent = 'Pot ist 0 – es gibt nichts zu verteilen.';
+        return;
+      }
+
+      const hackerRadio = document.querySelector('input[name="hacker"]:checked');
+      if (!hackerRadio) {
+        infoBox.textContent = 'Bitte einen Hacker festlegen (z.B. im Spieltisch mit „Hack“/„Blind Hack“).';
+        return;
+      }
+      const hackerId = hackerRadio.value;
+
+      const mitGeher = {};
+      const stiche = {};
+      players.forEach(p => {
+        mitGeher[p.id] = document.getElementById('mit-' + p.id).checked;
+        stiche[p.id] = intVal(document.getElementById('stich-' + p.id).value || 0);
+      });
+
+      const teilnehmer = players.filter(p => p.id === hackerId || mitGeher[p.id]);
+      if (teilnehmer.length === 0) {
+        infoBox.textContent = 'Es spielt niemand mit (Hacker + Mitgeher).';
+        return;
+      }
+
+      const zielErreicht = {};
+      teilnehmer.forEach(p => {
+        if (p.id === hackerId) zielErreicht[p.id] = stiche[p.id] >= 2;
+        else zielErreicht[p.id] = stiche[p.id] >= 1;
+      });
+
+      const hackerHasWin = zielErreicht[hackerId];
+      const winners = teilnehmer.filter(p => zielErreicht[p.id]);
+      const winnersMit = winners.filter(p => p.id !== hackerId);
+      const losersMit = teilnehmer.filter(p => p.id !== hackerId && !zielErreicht[p.id]);
+
+      const winnings = {};
+      const penalties = {};
+      players.forEach(p => { winnings[p.id] = 0; penalties[p.id] = 0; });
+
+      if (!hackerHasWin) {
+        const nW = winners.length;
+        if (nW > 0) {
+          const shares = splitEqual(potRound, nW);
+          winners.forEach((p, idx) => winnings[p.id] += shares[idx]);
+        }
+      } else {
+        if (winnersMit.length === 0) {
+          winnings[hackerId] += potRound;
+        } else {
+          if (potRound === 4 && winnersMit.length === 2) {
+            winnings[hackerId] += 2;
+            winnersMit.forEach(p => winnings[p.id] += 1);
+          } else {
+            const hackerShare = Math.round((2 * potRound) / 3);
+            let rest = potRound - hackerShare;
+            winnings[hackerId] += hackerShare;
+            const sharesMit = splitEqual(rest, winnersMit.length);
+            winnersMit.forEach((p, idx) => winnings[p.id] += sharesMit[idx]);
+          }
+        }
+      }
+
+      players.forEach(p => p.balance += winnings[p.id]);
+
+      let potNext = 0;
+      if (!hackerHasWin) {
+        penalties[hackerId] += 2 * potRound;
+        losersMit.forEach(p => penalties[p.id] += potRound);
+      } else {
+        losersMit.forEach(p => penalties[p.id] += potRound);
+      }
+
+      let sumPenalties = 0;
+      players.forEach(p => {
+        const pen = penalties[p.id];
+        if (pen > 0) {
+          p.balance -= pen;
+          sumPenalties += pen;
+        }
+      });
+      potNext += sumPenalties;
+
+      if (potNext === 0) {
+        players.forEach(p => {
+          p.balance -= baseStake;
+          potNext += baseStake;
+        });
+      }
+
+      pot = potNext;
+      roundNumber += 1;
+      updatePotDisplays();
+      updateScoreboard();
+      appendHistoryRow();
+
+      const hackerName = hackerPlayer?.name || 'Hacker';
+      infoBox.textContent =
+        `Runde ${roundNumber} ausgewertet.\n` +
+        `Hacker: ${hackerName}\n` +
+        `Pot nächste Runde: ${pot} Fr.\n\n` +
+        `Stiche dieser Runde:\n` +
+        players.map(p => `${p.name}: ${stiche[p.id]}`).join(', ');
+
+      tricks = {};
+      tricksPlayed = 0;
+      updateTrickCountersUI();
+
+      clearRolesAndStiches();
+      exchangeQueue = [];
+      exchangeQueueIndex = 0;
+
+      phase = 'idle';
+      updatePhaseUI();
+      setFlowHint('Nächster Schritt: Am Spieltisch „Karten geben (neu)“ drücken.');
+
+      addLog(`Runde ${roundNumber} ausgewertet. Neuer Pot: ${pot} Fr.`);
+      saveState();
+    }
+
+    function appendHistoryRow() {
+      const row = { balances: players.map(p => p.balance), pot: pot };
+      historyRows.push(row);
+      rebuildHistoryTable();
+    }
+
+    function resetGame() {
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+
+    function endGame() {
+      const endBox = document.getElementById('endSummary');
+      const infoBox = document.getElementById('roundInfo');
+      endBox.style.display = 'none';
+      endBox.textContent = '';
+
+      if (!players.length) return;
+
+      const normalPot = baseStake * players.length;
+
+      if (pot !== normalPot) {
+        infoBox.textContent =
+          `Spiel kann nur beendet werden, wenn der Pot im Normalzustand ist (${normalPot} Fr.).\n` +
+          `Aktueller Pot: ${pot} Fr.`;
+        return;
+      }
+
+      let summary = 'Endabrechnung (inkl. Rückgabe des letzten Grundeinsatzes):\n\n';
+      let sum = 0;
+
+      players.forEach(p => {
+        const endSaldo = p.balance + baseStake;
+        sum += endSaldo;
+        if (endSaldo > 0) summary += `${p.name} erhält ${endSaldo} Fr.\n`;
+        else if (endSaldo < 0) summary += `${p.name} muss ${Math.abs(endSaldo)} Fr. zahlen.\n`;
+        else summary += `${p.name} ist bei ±0 Fr.\n`;
+      });
+
+      summary += `\nKontrolle: Summe aller Spieler = ${sum} Fr. (sollte 0 sein).`;
+
+      endBox.textContent = summary;
+      endBox.style.display = 'block';
+      addLog('Spiel beendet. Endabrechnung wurde erstellt.');
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function switchView(view) {
+      const admin = document.getElementById('view-admin');
+      const table = document.getElementById('view-table');
+      const tabAdmin = document.getElementById('tab-admin');
+      const tabTable = document.getElementById('tab-table');
+
+      if (view === 'admin') {
+        admin.classList.add('active');
+        table.classList.remove('active');
+        tabAdmin.classList.add('active');
+        tabTable.classList.remove('active');
+      } else {
+        admin.classList.remove('active');
+        table.classList.add('active');
+        tabAdmin.classList.remove('active');
+        tabTable.classList.add('active');
+      }
+    }
+
+    function buildTableLayout() {
+      const topRow = document.getElementById('table-top-row');
+      const bottomRow = document.getElementById('table-bottom-row');
+      topRow.innerHTML = '';
+      bottomRow.innerHTML = '';
+
+      const half = Math.ceil(players.length / 2);
+      const topPlayers = players.slice(0, half);
+      const bottomPlayers = players.slice(half);
+
+      topPlayers.forEach(p => topRow.appendChild(createTablePlayerBox(p)));
+      bottomPlayers.forEach(p => bottomRow.appendChild(createTablePlayerBox(p)));
+
+      updateTrickCountersUI();
+      updateCurrentTurnHighlight();
+      updateTableHands();
+    }
+
+    function createTablePlayerBox(p) {
+      const box = document.createElement('div');
+      box.className = 'table-player-box';
+      box.id = 'table-box-' + p.id;
+
+      const header = document.createElement('div');
+      header.className = 'tp-header';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'tp-name';
+      nameSpan.textContent = p.name;
+      const roleSpan = document.createElement('span');
+      roleSpan.className = 'tp-role';
+      roleSpan.id = 'tp-role-' + p.id;
+      roleSpan.textContent = 'Rolle: –';
+      header.appendChild(nameSpan);
+      header.appendChild(roleSpan);
+      box.appendChild(header);
+
+      const bal = document.createElement('div');
+      bal.className = 'tp-balance';
+      bal.textContent = `Kontostand: ${p.balance} Fr.`;
+      bal.id = 'tp-balance-' + p.id;
+      box.appendChild(bal);
+
+      const trickDiv = document.createElement('div');
+      trickDiv.className = 'tp-tricks';
+      trickDiv.id = 'tp-tricks-' + p.id;
+      trickDiv.textContent = 'Stiche: 0';
+      box.appendChild(trickDiv);
+
+      const cardsRow = document.createElement('div');
+      cardsRow.className = 'tp-cards';
+      cardsRow.id = 'tp-cards-' + p.id;
+      box.appendChild(cardsRow);
+
+      const controls = document.createElement('div');
+      controls.style.marginTop = '4px';
+      controls.style.display = 'flex';
+      controls.style.gap = '4px';
+      controls.style.flexWrap = 'wrap';
+
+      const btnBlind = document.createElement('button');
+      btnBlind.type = 'button';
+      btnBlind.className = 'small-btn';
+      btnBlind.textContent = 'Blind Hack';
+      btnBlind.onclick = () => blindHack(p.id);
+
+      const btnHack = document.createElement('button');
+      btnHack.type = 'button';
+      btnHack.className = 'small-btn';
+      btnHack.textContent = 'Hack';
+      btnHack.onclick = () => setPlayerDecision(p.id, 'hack');
+
+      const btnMit = document.createElement('button');
+      btnMit.type = 'button';
+      btnMit.className = 'small-btn';
+      btnMit.textContent = 'Mit';
+      btnMit.onclick = () => setPlayerDecision(p.id, 'mit');
+
+      const btnPass = document.createElement('button');
+      btnPass.type = 'button';
+      btnPass.className = 'small-btn';
+      btnPass.textContent = 'Pass';
+      btnPass.onclick = () => setPlayerDecision(p.id, 'pass');
+
+      const btnSwap = document.createElement('button');
+      btnSwap.type = 'button';
+      btnSwap.className = 'small-btn';
+      btnSwap.textContent = 'Tauschen';
+      btnSwap.onclick = () => startExchangeForPlayer(p.id);
+
+      const btnDone = document.createElement('button');
+      btnDone.type = 'button';
+      btnDone.className = 'small-btn';
+      btnDone.textContent = 'Fertig';
+      btnDone.id = 'btn-done-' + p.id;
+      btnDone.onclick = () => markExchangeDone(p.id);
+
+      controls.appendChild(btnBlind);
+      controls.appendChild(btnHack);
+      controls.appendChild(btnMit);
+      controls.appendChild(btnPass);
+      controls.appendChild(btnSwap);
+      controls.appendChild(btnDone);
+
+      box.appendChild(controls);
+
+      return box;
+    }
+
+    function updateTableBalances() {
+      players.forEach(p => {
+        const el = document.getElementById('tp-balance-' + p.id);
+        if (el) el.textContent = `Kontostand: ${p.balance} Fr.`;
+      });
+    }
+
+    function updateTrickCountersUI() {
+      players.forEach(p => {
+        const el = document.getElementById('tp-tricks-' + p.id);
+        if (el) el.textContent = `Stiche: ${tricks[p.id] || 0}`;
+      });
+    }
+
+    function renderCardFace(div, card) {
+      div.innerHTML = '';
+      const rankTop = document.createElement('div');
+      rankTop.className = 'card-rank top-left';
+      rankTop.textContent = card.rank;
+
+      const rankBottom = document.createElement('div');
+      rankBottom.className = 'card-rank bottom-right';
+      rankBottom.textContent = card.rank;
+
+      const suitDiv = document.createElement('div');
+      suitDiv.className = 'card-suit';
+      suitDiv.textContent = suitSymbol(card.suit);
+
+      div.appendChild(rankTop);
+      div.appendChild(suitDiv);
+      div.appendChild(rankBottom);
+    }
+
+    function updateTableHands() {
+      players.forEach(p => {
+        const row = document.getElementById('tp-cards-' + p.id);
+        if (!row) return;
+        row.innerHTML = '';
+        const hand = p.hand || [];
+        for (let i = 0; i < hand.length; i++) {
+          const cardDiv = document.createElement('div');
+
+          if (cardsFaceDown) {
+            cardDiv.className = 'card-small back';
+          } else {
+            const c = hand[i];
+            if (c) {
+              cardDiv.className = 'card-small ' + (isRedSuit(c.suit) ? 'red' : 'black');
+
+              if (modeExchange && p.id === exchangePlayerId && selectedForExchange.has(i)) {
+                cardDiv.classList.add('selected');
+              }
+
+              renderCardFace(cardDiv, c);
+
+              if (modeExchange && p.id === exchangePlayerId) {
+                cardDiv.style.cursor = 'pointer';
+                cardDiv.onclick = () => toggleExchangeSelection(i);
+              } else if (!modeExchange && phase === 'tricks' && activePlayerIds.includes(p.id)) {
+                cardDiv.style.cursor = 'pointer';
+                cardDiv.onclick = () => playCard(p.id, i);
+              }
+            } else {
+              cardDiv.className = 'card-small empty';
+            }
+          }
+          row.appendChild(cardDiv);
+        }
+      });
+    }
+
+    function updateCurrentTurnHighlight() {
+      players.forEach(p => {
+        const box = document.getElementById('table-box-' + p.id);
+        if (!box) return;
+        box.classList.remove('active-turn');
+      });
+      if (!activePlayerIds.length || phase !== 'tricks') return;
+      const currentId = activePlayerIds[currentActiveIndex] || null;
+      if (!currentId) return;
+      const activeBox = document.getElementById('table-box-' + currentId);
+      if (activeBox) activeBox.classList.add('active-turn');
+    }
+
+    function updateCurrentTrickDisplay() {
+      const container = document.getElementById('current-trick-cards');
+      if (!container) return;
+      container.innerHTML = '';
+
+      currentTrick.forEach(entry => {
+        const div = document.createElement('div');
+        div.className = 'card-small ' + (isRedSuit(entry.card.suit) ? 'red' : 'black');
+        renderCardFace(div, entry.card);
+        container.appendChild(div);
+      });
+
+      const totalSlots = (activePlayerIds.length || players.length);
+      const remaining = totalSlots - currentTrick.length;
+      for (let i = 0; i < remaining; i++) {
+        const div = document.createElement('div');
+        div.className = 'card-small empty';
+        container.appendChild(div);
+      }
+    }
+            function setPlayerDecision(playerId, decision) {
+      if (tenHackForced) {
+        alert('Bei 10er-Hacken sind Hacker und Mitgeher vorgegeben und können nicht geändert werden.');
+        return;
+      }
+
+      if (fixedHackerId) {
+        if (decision === 'hack' && playerId !== fixedHackerId) {
+          alert('Es wurde bereits ein Hacker festgelegt. Ein anderer Spieler kann nicht mehr hacken.');
+          return;
+        }
+        if (decision === 'pass' && playerId === fixedHackerId) {
+          alert('Der Hacker kann nach Festlegung nicht mehr passen.');
+          return;
+        }
+        updateRolesFromForm();
+        // Rollen haben sich geändert -> Tausch-Reihenfolge neu berechnen
+        exchangeQueue = [];
+        exchangeQueueIndex = 0;
+
+        // Falls wir gerade im Tausch waren, abbrechen (Rollenänderung macht sonst Chaos)
+        modeExchange = false;
+        exchangePlayerId = null;
+        selectedForExchange = new Set();
+
+updateExchangeButtons();
+
+      }
+
+      const player = players.find(pl => pl.id === playerId);
+      const name = player ? player.name : 'Spieler';
+
+      const hackerInputs = document.querySelectorAll('input[name="hacker"]');
+      const hackerRadio = document.getElementById('hacker-' + playerId);
+      const mitCheckbox = document.getElementById('mit-' + playerId);
+
+      if (decision === 'hack') {
+        const existing = document.querySelector('input[name="hacker"]:checked');
+        if (existing && existing.value && existing.value !== playerId && !fixedHackerId) {
+          alert('Es ist bereits ein Hacker gewählt.');
+          if (hackerRadio) hackerRadio.checked = (existing.value === playerId);
+          return;
+        }
+
+        hackerInputs.forEach(r => (r.checked = false));
+        if (hackerRadio) hackerRadio.checked = true;
+        if (mitCheckbox) mitCheckbox.checked = false;
+
+        if (!fixedHackerId) {
+          setFixedHacker(playerId);
+        }
+        addLog(`${name} hackt.`);
+      } else if (decision === 'mit') {
+        if (mitCheckbox) {
+          mitCheckbox.checked = !mitCheckbox.checked;
+          if (mitCheckbox.checked) addLog(`${name} geht mit.`);
+          else addLog(`${name} ist nicht mehr dabei (Mitgehen abgewählt).`);
+        }
+        if (hackerRadio && !fixedHackerId) hackerRadio.checked = false;
+      } else if (decision === 'pass') {
+        if (mitCheckbox) mitCheckbox.checked = false;
+        if (hackerRadio && !fixedHackerId) hackerRadio.checked = false;
+        addLog(`${name} passt.`);
+      }
+
+      updateRolesFromForm();
+      updateExchangeButtons();
+
+    }
+
+    function updateRolesFromForm() {
+      players.forEach(p => {
+        const roleSpan = document.getElementById('tp-role-' + p.id);
+        if (!roleSpan) return;
+        const rRadio = document.getElementById('hacker-' + p.id);
+        const rMit = document.getElementById('mit-' + p.id);
+
+        if (rRadio && rRadio.checked) roleSpan.textContent = 'Rolle: Hacker';
+        else if (rMit && rMit.checked) roleSpan.textContent = 'Rolle: Mitgeher';
+        else roleSpan.textContent = 'Rolle: Pass';
+      });
+    }
+
+    function updateTrumpFromInputs() {
+      const suitValue = document.getElementById('trumpSuit').value;
+      const rankValue = document.getElementById('trumpRank').value;
+
+      trumpSuit = suitValue || null;
+      trumpRank = rankValue || null;
+      updateTrumpDisplay();
+    }
+
+    function updateTrumpDisplay() {
+      const slot = document.getElementById('trump-card-slot');
+      const hint = document.getElementById('trump-text-hint');
+      if (!slot || !hint) return;
+
+      slot.className = 'card-small empty';
+      slot.innerHTML = '';
+      if (trumpSuit && trumpRank) {
+        slot.className = 'card-small ' + (isRedSuit(trumpSuit) ? 'red' : 'black');
+        renderCardFace(slot, { suit: trumpSuit, rank: trumpRank });
+        hint.textContent = `Trumpf: ${trumpRank} ${suitNameDe(trumpSuit)} (max. 3 Trumpfe, 10er-Hacken bei einfachem/doppeltem Pot).`;
+      } else {
+        hint.textContent = '„Karten geben (neu)“: Trumpf wird automatisch gezogen (10er-Hacken bei einfachem/doppeltem Pot).';
+      }
+
+      if (trumpSuit !== null) document.getElementById('trumpSuit').value = trumpSuit;
+      if (trumpRank !== null) document.getElementById('trumpRank').value = trumpRank;
+    }
+
+    function isTenHackPot() {
+      const simplePot = baseStake * players.length;
+      const doublePot = simplePot * 2;
+      return pot === simplePot || pot === doublePot;
+    }
+
+    function applyForcedTenHackIfNeeded() {
+      if (trumpRank !== '10' || !trumpCardObj || !isTenHackPot()) return false;
+
+      const hackerIndex = (dealerIndex + 1) % players.length;
+      const hacker = players[hackerIndex];
+      if (!hacker) return false;
+
+      // Rollen setzen: Hacker fix, alle anderen Mit
+      players.forEach(p => {
+        const r = document.getElementById('hacker-' + p.id);
+        const m = document.getElementById('mit-' + p.id);
+        if (r) r.checked = false;
+        if (m) m.checked = false;
+      });
+
+      const hackerRadio = document.getElementById('hacker-' + hacker.id);
+      if (hackerRadio) hackerRadio.checked = true;
+
+      players.forEach(p => {
+        if (p.id !== hacker.id) {
+          const mitBox = document.getElementById('mit-' + p.id);
+          if (mitBox) mitBox.checked = true;
+        }
+      });
+
+      setFixedHacker(hacker.id);
+      updateRolesFromForm();
+
+      // Inputs sperren
+      players.forEach(p => {
+        const r = document.getElementById('hacker-' + p.id);
+        const m = document.getElementById('mit-' + p.id);
+        if (r) r.disabled = true;
+        if (m) m.disabled = true;
+      });
+
+      tenHackForced = true;
+      cardsFaceDown = false;
+      phase = 'open_cards';
+
+      updateTableHands();
+      updateCurrentTrickDisplay();
+      updateCurrentTurnHighlight();
+      updatePhaseUI();
+
+      document.getElementById('roundInfo').textContent =
+        `10er-Hacken aktiv (Pot ${pot} Fr.). ${hacker.name} muss hacken, alle anderen müssen mitgehen.\n` +
+        'In dieser Runde darf niemand Karten tauschen. Die Stichrunde startet direkt.';
+
+      addLog(`10er-Hacken: ${hacker.name} muss hacken, alle anderen müssen mitgehen. Stichrunde startet direkt.`);
+
+      setTimeout(() => {
+        if (phase === 'open_cards') startTrickPhase();
+      }, 80);
+
+      return true;
+    }
+
+    function dealNewRound() {
+      if (!players.length) return;
+
+      dealerIndex = (dealerIndex + 1) % players.length;
+
+      deck = buildDeck();
+      shuffleDeck(deck);
+
+      players.forEach(p => {
+        p.hand = deck.splice(0, 4);
+        sortHand(p.hand);
+      });
+
+      trumpCardObj = deck.shift() || null;
+      trumpDrawCount = 0;
+
+      if (trumpCardObj) {
+        trumpSuit = trumpCardObj.suit;
+        trumpRank = trumpCardObj.rank;
+        trumpDrawCount = 1;
+      } else {
+        trumpSuit = null;
+        trumpRank = null;
+      }
+
+      tricks = {};
+      players.forEach(p => { tricks[p.id] = 0; });
+
+      currentTrick = [];
+      activePlayerIds = [];
+      currentActiveIndex = 0;
+      tricksPlayed = 0;
+      blindHackerId = null;
+      modeExchange = false;
+      exchangePlayerId = null;
+      selectedForExchange = new Set();
+      exchangeQueue = [];
+      exchangeQueueIndex = 0;
+      tenHackForced = false;
+      clearRolesAndStiches();
+
+      phase = 'dealt_blind';
+      cardsFaceDown = true;
+
+      updateTableHands();
+      updateTrickCountersUI();
+      updateCurrentTrickDisplay();
+      updateCurrentTurnHighlight();
+      updateTrumpDisplay();
+
+      if (applyForcedTenHackIfNeeded()) {
+        kickAutopilot();
+        return;
+      }
+
+      addLog(`Runde ${roundNumber + 1} startet.`);
+      
+      // Autopilot starten wenn aktiviert
+      kickAutopilot();
+    }
+
+    // ===== NEUE FUNKTION: Runde überspringen (wenn niemand hackt) =====
+    function skipRound() {
+      addLog('Runde übersprungen (niemand gehaxt nach 3 Trumpfen).');
+      phase = 'idle';
+      pot = pot; // Pot bleibt (wächst für nächste Runde)
+      roundNumber += 1;
+      updatePotDisplays();
+      updateScoreboard();
+
+      updatePhaseUI();
+      switchView('table');
+
+      document.getElementById('roundInfo').textContent =
+        'Niemand hat nach 3 Trumpfen gehackt. Diese Runde wurde beendet.\n' +
+        `Der Pot bleibt bei ${pot} Fr. Nächster Schritt: „Karten geben (neu)“.`;
+
+      kickAutopilot();
+      updateExchangeButtons();
+
+    }
+
+    function blindHack(playerId) {
+      if (tenHackForced) {
+        alert('In einer 10er-Hacken-Runde ist Blind-Hack nicht erlaubt.');
+        return;
+      }
+      if (phase !== 'dealt_blind') {
+        alert('Blind hacken ist nur direkt nach dem Geben möglich.');
+        return;
+      }
+      if (!trumpCardObj) {
+        alert('Keine Trumpfkarte verfügbar (interner Fehler).');
+        return;
+      }
+      if (blindHackerId) {
+        alert('Es gibt bereits einen Blind-Hacker.');
+        return;
+      }
+
+      const p = players.find(pl => pl.id === playerId);
+      if (!p) return;
+
+      setPlayerDecision(playerId, 'hack');
+      blindHackerId = playerId;
+
+      // Trumpfkarte aufnehmen → 5 Karten
+      p.hand.push(trumpCardObj);
+      trumpCardObj = null;
+      sortHand(p.hand);
+
+      cardsFaceDown = false;
+      phase = 'open_cards';
+
+      updateTableHands();
+      updateCurrentTrickDisplay();
+      updateCurrentTurnHighlight();
+      updatePhaseUI();
+
+      addLog(`${p.name} hackt blind und nimmt die Trumpfkarte.`);
+      document.getElementById('roundInfo').textContent =
+        `${p.name} hat blind gehackt. Er hat jetzt 5 Karten.\n` +
+        'Blind-Hacker-Regel: Er muss entweder 1 Karte ablegen (ohne Ersatz) ODER\n' +
+        '2 Karten für 1, 3 Karten für 2 oder 4 Karten für 3 tauschen – am Ende immer 4 Karten.\n' +
+        'Dazu bei ihm „Tauschen“ wählen, Karten markieren und „Tausch ausführen“ klicken.';
+
+      kickAutopilot();
+      updateExchangeButtons();
+
+    }
+
+    function revealAllHands() {
+      if (phase === 'dealt_blind') {
+        cardsFaceDown = false;
+        phase = 'open_cards';
+        updatePhaseUI();
+        document.getElementById('roundInfo').textContent =
+          'Niemand hat blind gehackt. Alle Hände sind jetzt sichtbar.\n' +
+          'Nächster Schritt: Hacker festlegen (per Button oder Autopilot), dann Mitgeher und Tausch.';
+        addLog('Niemand will blind hacken – alle Hände werden aufgedeckt.');
+      } else {
+        cardsFaceDown = false;
+      }
+
+      updateTableHands();
+      kickAutopilot();
+      updateExchangeButtons();
+    }
+
+    function nextTrump() {
+      if (phase !== 'open_cards') {
+        alert('Nächsten Trumpf kannst du nur wählen, wenn alle Karten offen sind.');
+        return;
+      }
+
+      const hackerRadio = document.querySelector('input[name="hacker"]:checked');
+      if (hackerRadio) {
+        alert('Es ist bereits ein Hacker gewählt – der Trumpf kann jetzt nicht mehr gewechselt werden.');
+        return;
+      }
+
+      if (trumpDrawCount >= 3) {
+        // Runde zählt: alle zahlen Einsatz, Pot erhöht, Runde endet ohne Spiel
+        let addedPot = 0;
+        players.forEach(p => {
+          p.balance -= baseStake;
+          addedPot += baseStake;
+        });
+        pot += addedPot;
+
+        updateScoreboard();
+        updatePotDisplays();
+        appendHistoryRow();
+        saveState();
+
+        trumpSuit = null;
+        trumpRank = null;
+        trumpCardObj = null;
+        updateTrumpDisplay();
+
+        phase = 'idle';
+        cardsFaceDown = false;
+        currentTrick = [];
+        activePlayerIds = [];
+        currentActiveIndex = 0;
+        tricks = {};
+        tricksPlayed = 0;
+        modeExchange = false;
+        exchangePlayerId = null;
+        selectedForExchange = new Set();
+        exchangeQueue = [];
+        exchangeQueueIndex = 0;
+        clearRolesAndStiches();
+
+        updateTableHands();
+        updateCurrentTrickDisplay();
+        updateCurrentTurnHighlight();
+        updatePhaseUI();
+        switchView('admin');
+
+        document.getElementById('roundInfo').textContent =
+          'Es wurden 3 Trumpfkarten ohne Hack aufgedeckt. Die Runde zählt: Alle Spieler zahlen den Einsatz.\n' +
+          `Neuer Pot: ${pot} Fr. Nächster Spieler gibt neu aus (Spieltisch: „Karten geben (neu)“).`;
+
+        addLog('3 Trumpfe ohne Hack – alle zahlen den Einsatz, Runde ohne Spiel beendet.');
+        kickAutopilot();
+        return;
+      }
+
+      if (deck.length === 0) {
+        alert('Keine Karten mehr im Stapel, um einen neuen Trumpf aufzudecken.');
+        return;
+      }
+
+      trumpCardObj = deck.shift();
+      trumpSuit = trumpCardObj.suit;
+      trumpRank = trumpCardObj.rank;
+      trumpDrawCount++;
+
+      updateTrumpDisplay();
+
+      addLog(`Neuer Trumpf (${trumpDrawCount}. Karte): ${trumpRank} ${suitNameDe(trumpSuit)}.`);
+      document.getElementById('roundInfo').textContent =
+        `Neuer Trumpf (${trumpDrawCount}. Karte): ${trumpRank} ${suitNameDe(trumpSuit)}.\n` +
+        'Noch kein Hacker gewählt – ihr könnt weiterhin entscheiden, ob jemand hackt oder den Trumpf nochmals wechselt (max. 3).';
+
+      if (applyForcedTenHackIfNeeded()) {
+        kickAutopilot();
+        return;
+      }
+
+      kickAutopilot();
+    }
+
+function computeExchangeQueue() {
+  const hackerRadio = document.querySelector('input[name="hacker"]:checked');
+  if (!hackerRadio) return [];
+  const hackerId = hackerRadio.value;
+
+  const mitIds = players
+    .filter(p => document.getElementById('mit-' + p.id)?.checked)
+    .map(p => p.id);
+
+  const startIndex = players.findIndex(p => p.id === hackerId);
+  if (startIndex < 0) return [];
+
+  const order = [];
+  for (let i = 0; i < players.length; i++) {
+    const idx = (startIndex + i) % players.length;
+    const pid = players[idx].id;
+    if (pid === hackerId || mitIds.includes(pid)) {
+      order.push(pid);
+    }
+  }
+  return order;
+}
+
+function startExchangeForPlayer(playerId) {
+  if (tenHackForced) {
+    alert('Bei 10er-Hacken darf niemand Karten tauschen – es wird mit der ausgeteilten Hand gespielt.');
+    return;
+  }
+  if (phase !== 'open_cards') {
+    alert('Tauschen ist nur möglich, wenn alle Karten offen sind (nach Blind-/10er-Phase).');
+    return;
+  }
+
+  const hackerRadio = document.querySelector('input[name="hacker"]:checked');
+  if (!hackerRadio) {
+    alert('Bitte zuerst einen Hacker wählen, bevor getauscht wird.');
+    return;
+  }
+
+  // Queue nur initialisieren, wenn sie noch nicht läuft
+  if (!exchangeQueue.length) {
+  exchangeQueue = computeExchangeQueue();
+  exchangeQueueIndex = 0;
+  }
+
+  if (!exchangeQueue.includes(playerId)) {
+    alert('Dieser Spieler ist diese Runde nicht beteiligt (Pass) und darf daher nicht tauschen.');
+    return;
+  }
+
+  const currentExchangeId = exchangeQueue[exchangeQueueIndex];
+  if (playerId !== currentExchangeId) {
+    const currentName = players.find(p => p.id === currentExchangeId)?.name || 'nächster Spieler';
+    alert(`Tausch erfolgt der Reihe nach. Jetzt ist ${currentName} an der Reihe.`);
+    return;
+  }
+
+  const p = players.find(pl => pl.id === playerId);
+  if (!p) return;
+
+  modeExchange = true;
+  exchangePlayerId = playerId;
+  selectedForExchange = new Set();
+
+  updateTableHands();
+
+  if (playerId === blindHackerId && p.hand.length === 5) {
+    document.getElementById('roundInfo').textContent =
+      `Tauschmodus für Blind-Hacker ${p.name}: 1–4 Karten markieren.\n` +
+      'Regel: 1 Karte ablegen (ohne Ersatz) ODER 2→1, 3→2, 4→3 tauschen – am Ende genau 4 Karten.';
+  } else {
+    document.getElementById('roundInfo').textContent =
+      `Tauschmodus für ${p.name}: Karten anklicken, um sie zu markieren (0–4 Karten).\n` +
+      'Normaler Tausch: 1:1 – jede abgelegte Karte wird ersetzt (immer 4 Karten in der Hand).';
+  }
+  addLog(`Tauschphase: ${p.name} ist an der Reihe.`);
+}
+
+function toggleExchangeSelection(cardIndex) {
+  if (!modeExchange || exchangePlayerId === null) return;
+  if (selectedForExchange.has(cardIndex)) selectedForExchange.delete(cardIndex);
+  else selectedForExchange.add(cardIndex);
+  updateTableHands();
+}
+function openNextExchangeTurnIfAny() {
+  if (!exchangeQueue.length) return;
+
+  if (exchangeQueueIndex < exchangeQueue.length) {
+    const nextId = exchangeQueue[exchangeQueueIndex];
+    const nextName = players.find(pl => pl.id === nextId)?.name || 'nächster Spieler';
+
+    document.getElementById('roundInfo').textContent =
+      `Tausch-Reihenfolge: Jetzt ist ${nextName} an der Reihe.\n` +
+      `Er kann tauschen („Tauschen“) oder „Fertig“ klicken.`;
+
+    updateExchangeButtons();
+    startExchangeForPlayer(nextId);
+    return;
+  }
+
+  updateExchangeButtons();
+  document.getElementById('roundInfo').textContent =
+    'Alle beteiligten Spieler sind fertig mit dem Tausch.\n' +
+    'Als nächstes: Stichrunde starten.';
+}
+
+function executeExchange() {
+  if (!modeExchange || exchangePlayerId === null) {
+    alert('Kein Spieler im Tauschmodus. Bitte zuerst bei einem Spieler „Tauschen“ klicken.');
+    return;
+  }
+  const p = players.find(pl => pl.id === exchangePlayerId);
+  if (!p) return;
+
+  let indices = Array.from(selectedForExchange).sort((a,b)=>a-b);
+  const isBlindHacker = (exchangePlayerId === blindHackerId && p.hand.length === 5);
+
+  if (isBlindHacker) {
+    if (indices.length < 1 || indices.length > 4) {
+      alert('Blind-Hacker muss 1–4 Karten auswählen.');
+      return;
+    }
+    const drawCount = indices.length - 1;
+    if (drawCount > deck.length) {
+      alert('Nicht genug Karten im Stapel für diesen Blind-Tausch.');
+      return;
+    }
+
+    indices.sort((a,b)=>b-a).forEach(idx => {
+      if (idx >= 0 && idx < p.hand.length) p.hand.splice(idx, 1);
+    });
+
+    for (let i = 0; i < drawCount; i++) {
+      if (deck.length > 0) p.hand.push(deck.shift());
+    }
+
+    if (p.hand.length !== 4) p.hand = p.hand.slice(0, 4);
+    sortHand(p.hand);
+
+    modeExchange = false;
+    exchangePlayerId = null;
+    selectedForExchange = new Set();
+    updateTableHands();
+
+    document.getElementById('roundInfo').textContent =
+      `Blind-Tausch durchgeführt. ${p.name} hat ${indices.length} Karte(n) abgelegt.\n` +
+      'Er hat jetzt 4 Karten.';
+
+    if (indices.length === 4) addLog(`${p.name} braucht einen Reifenwechsel (4 Karten gewechselt – Blind-Tausch).`);
+    else addLog(`${p.name} tauscht ${indices.length} Karte(n) (Blind-Tausch).`);
+
+  } else {
+    if (indices.length === 0) {
+      modeExchange = false;
+      exchangePlayerId = null;
+      selectedForExchange = new Set();
+      updateTableHands();
+      document.getElementById('roundInfo').textContent = `${p.name} hat keinen Tausch durchgeführt.`;
+      addLog(`${p.name} tauscht keine Karten.`);
+    } else {
+      if (indices.length > deck.length) {
+        alert('Nicht genug Karten im Stapel zum Tauschen.');
+        return;
+      }
+
+      indices.forEach(idx => {
+        if (deck.length > 0 && p.hand[idx]) p.hand[idx] = deck.shift();
+      });
+      sortHand(p.hand);
+
+      modeExchange = false;
+      exchangePlayerId = null;
+      selectedForExchange = new Set();
+      updateTableHands();
+
+      document.getElementById('roundInfo').textContent =
+        `Tausch durchgeführt. ${p.name} hat ${indices.length} Karte(n) gewechselt.`;
+
+      if (indices.length === 4) addLog(`${p.name} braucht einen Reifenwechsel (4 Karten gewechselt).`);
+      else addLog(`${p.name} tauscht ${indices.length} Karte(n).`);
+    }
+  }
+
+  // ---- AUTO: zum nächsten Spieler springen ----
+  // Queue sicher initialisieren (falls jemand direkt über "Tauschen" reinkam)
+  if (!exchangeQueue.length) {
+    exchangeQueue = computeExchangeQueue();
+    exchangeQueueIndex = 0;
+  }
+
+  // Wenn der aktuelle Spieler wirklich der "current turn" war, dann weiterzählen
+  const currentId = exchangeQueue[exchangeQueueIndex];
+  if (currentId === p.id) exchangeQueueIndex++;
+
+  // Autopilot-Signal zum Weitermachen
+  if (window.autopilot && window.autopilotExchangeResolve) {
+    window.autopilotExchangeResolve();
+  }
+
+  // Nächsten automatisch öffnen oder fertig
+  if (exchangeQueueIndex < exchangeQueue.length) {
+    openNextExchangeTurnIfAny();
+  } else {
+    openNextExchangeTurnIfAny(); // schreibt "alle fertig" ins roundInfo
+
+    if (window.autopilot) {
+      addLog('Autopilot: Tausch abgeschlossen → Stichrunde startet.');
+      setTimeout(startTrickPhase, 800);
+    }
+  }
+
+  updateExchangeButtons();
+}
+
+
+
+  if (exchangeQueue.length) {
+    exchangeQueueIndex++;
+    if (exchangeQueueIndex < exchangeQueue.length) {
+      const nextId = exchangeQueue[exchangeQueueIndex];
+      const nextName = players.find(pl => pl.id === nextId)?.name || 'nächster Spieler';
+      document.getElementById('roundInfo').textContent +=
+        `\nJetzt ist ${nextName} an der Reihe. Falls er tauschen möchte, „Tauschen“ bei ihm drücken.`;
+        updateExchangeButtons();
+
+        if (window.autopilot && exchangeQueue.length && exchangeQueueIndex >= exchangeQueue.length) {
+        addLog('Autopilot: Tausch abgeschlossen → Stichrunde startet.');
+        setTimeout(startTrickPhase, 80);
+        }
+
+    } else {
+      document.getElementById('roundInfo').textContent +=
+        '\nAlle beteiligten Spieler hatten die Möglichkeit zu tauschen.';
+    }
+  }
+
+function startTrickPhase() {
+  if (!players.length) return;
+  if (modeExchange) {
+    alert('Bitte zuerst den aktuellen Tausch abschliessen (Tausch ausführen) oder ohne Tausch beenden.');
+    return;
+  }
+  if (phase !== 'open_cards' && phase !== 'idle') {
+    alert('Stichrunde kann nur nach dem Geben/Aufdecken + Tausch gestartet werden.');
+    return;
+  }
+
+  const hackerRadio = document.querySelector('input[name="hacker"]:checked');
+  if (!hackerRadio) {
+    alert('Bitte einen Hacker wählen (Hack, Blind-Hack oder 10er-Hack).');
+    return;
+  }
+  const hackerId = hackerRadio.value;
+
+  const mitGeher = {};
+  players.forEach(p => { mitGeher[p.id] = document.getElementById('mit-' + p.id).checked; });
+
+  const numMit = players.filter(p => mitGeher[p.id]).length;
+
+  if (numMit === 0) {
+    const hacker = players.find(p => p.id === hackerId);
+    if (hacker) hacker.balance += pot;
+    const oldPot = pot;
+
+    pot = 0;
+    players.forEach(p => { p.balance -= baseStake; pot += baseStake; });
+
+    updateScoreboard();
+    updatePotDisplays();
+    appendHistoryRow();
+    saveState();
+
+    tricks = {};
+    tricksPlayed = 0;
+    currentTrick = [];
+    activePlayerIds = [];
+    currentActiveIndex = 0;
+    modeExchange = false;
+    exchangePlayerId = null;
+    selectedForExchange = new Set();
+    exchangeQueue = [];
+    exchangeQueueIndex = 0;
+    clearRolesAndStiches();
+
+    phase = 'idle';
+    updatePhaseUI();
+    switchView('admin');
+
+    document.getElementById('roundInfo').textContent =
+      `Hacker ${hacker ? hacker.name : ''} spielt alleine – niemand ist mitgegangen.\n` +
+      `Er erhält automatisch den gesamten Pot von ${oldPot} Fr.\n` +
+      `Neue Runde: Am Spieltisch „Karten geben (neu)“ drücken. Neuer Pot: ${pot} Fr.`;
+
+    addLog(`Alle haben gepasst – ${hacker ? hacker.name : 'der Hacker'} erhält den gesamten Pot von ${oldPot} Fr.`);
+    return;
+  }
+
+  if (blindHackerId) {
+    const bh = players.find(p => p.id === blindHackerId);
+    if (bh && bh.hand.length !== 4) {
+      alert('Blind-Hacker muss zuerst seine Hand auf 4 Karten bringen (siehe Blind-Tausch-Regel).');
+      return;
+    }
+  }
+
+  activePlayerIds = [];
+  players.forEach(p => { if (p.id === hackerId || mitGeher[p.id]) activePlayerIds.push(p.id); });
+  if (!activePlayerIds.includes(hackerId)) activePlayerIds.unshift(hackerId);
+
+  if (!activePlayerIds.length) {
+    alert('Keine aktiven Spieler gefunden.');
+    return;
+  }
+
+  tricks = {};
+  players.forEach(p => { tricks[p.id] = 0; });
+  currentTrick = [];
+  tricksPlayed = 0;
+
+  phase = 'tricks';
+  currentActiveIndex = activePlayerIds.indexOf(hackerId);
+  if (currentActiveIndex < 0) currentActiveIndex = 0;
+
+  cardsFaceDown = false;
+  updateTableHands();
+  updateTrickCountersUI();
+  updateCurrentTrickDisplay();
+  updateCurrentTurnHighlight();
+  updatePhaseUI();
+  switchView('table');
+
+  const starter = players.find(p => p.id === activePlayerIds[currentActiveIndex]);
+  const starterName = starter ? starter.name : 'Der Hacker';
+  document.getElementById('roundInfo').textContent =
+    'Stichrunde gestartet. ' + starterName + ' beginnt. Es werden maximal 4 Stiche gespielt.';
+
+  addLog(`Stichrunde gestartet. ${starterName} spielt zuerst.`);
+}
+
+function playCard(playerId, cardIndex) {
+  if (phase !== 'tricks') {
+    alert('Die Stichrunde ist noch nicht gestartet. Bitte zuerst „Stichrunde starten“.');
+    return;
+  }
+  if (!players.length || !activePlayerIds.length) return;
+
+  if (!activePlayerIds.includes(playerId)) {
+    alert('Dieser Spieler spielt diese Runde nicht mit (Pass).');
+    return;
+  }
+
+  const currentId = activePlayerIds[currentActiveIndex];
+  if (playerId !== currentId) {
+    alert('Nicht dein Zug.');
+    return;
+  }
+
+  const p = players.find(pl => pl.id === playerId);
+  if (!p || !p.hand[cardIndex]) return;
+
+  const card = p.hand[cardIndex];
+
+  if (currentTrick.length > 0) {
+    const leadSuit = currentTrick[0].card.suit;
+    const hasLead = p.hand.some(c => c.suit === leadSuit);
+    const hasTrump = trumpSuit ? p.hand.some(c => c.suit === trumpSuit) : false;
+
+    if (hasLead && card.suit !== leadSuit) {
+      alert('Du musst die angespielte Farbe bedienen.');
+      return;
+    }
+    if (!hasLead && trumpSuit && hasTrump && card.suit !== trumpSuit) {
+      alert('Du musst Trumpf spielen.');
+      return;
+    }
+  }
+
+  currentTrick.push({ playerId, card });
+  p.hand.splice(cardIndex, 1);
+
+  updateTableHands();
+  updateCurrentTrickDisplay();
+
+  addLog(`${p.name} spielt ${card.rank} ${suitNameDe(card.suit)}.`);
+
+  // Wenn Autopilot wartet auf einen Spielzug, signalisiere die Fertigstellung
+  if (window.autopilot && window.autopilotPlayResolve) {
+    try { window.autopilotPlayResolve(); } catch(e) {}
+    window.autopilotPlayResolve = null;
+  }
+
+  if (currentTrick.length === activePlayerIds.length) {
+    const winnerId = determineTrickWinner();
+    if (winnerId) {
+      tricks[winnerId] = (tricks[winnerId] || 0) + 1;
+      const winnerName = players.find(pl => pl.id === winnerId)?.name || 'Unbekannt';
+      tricksPlayed++;
+      addLog(`Stich ${tricksPlayed} geht an ${winnerName}.`);
+    }
+    currentTrick = [];
+    updateTrickCountersUI();
+
+    const idx = activePlayerIds.indexOf(winnerId);
+    currentActiveIndex = idx >= 0 ? idx : 0;
+    updateCurrentTurnHighlight();
+    updateCurrentTrickDisplay();
+
+    if (tricksPlayed >= 4) {
+      players.forEach(pl => {
+        const inp = document.getElementById('stich-' + pl.id);
+        if (inp) inp.value = (tricks[pl.id] || 0).toString();
+      });
+
+      document.getElementById('roundInfo').textContent =
+        'Es wurden 4 Stiche gespielt.\n' +
+        'Stiche pro Spieler:\n' +
+        players.map(pl => `${pl.name}: ${tricks[pl.id] || 0}`).join(', ') +
+        '\nNun in der Verwaltung „Runde auswerten“ klicken.';
+
+      phase = 'finished';
+      updatePhaseUI();
+      switchView('admin');
+
+      addLog('Alle 4 Stiche sind gespielt – Runde kann ausgewertet werden.');
+
+    }
+  } else {
+    currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
+    updateCurrentTurnHighlight();
+  }
+}
+
+function determineTrickWinner() {
+  if (!currentTrick.length) return null;
+  const leadSuit = currentTrick[0].card.suit;
+
+  let winnerEntry = null;
+
+  if (trumpSuit) {
+    const trumpCards = currentTrick.filter(e => e.card.suit === trumpSuit);
+    if (trumpCards.length > 0) {
+      trumpCards.forEach(entry => {
+        if (!winnerEntry || cardRankValue(entry.card.rank) > cardRankValue(winnerEntry.card.rank)) {
+          winnerEntry = entry;
+        }
+      });
+      return winnerEntry.playerId;
+    }
+  }
+
+  currentTrick.forEach(entry => {
+    if (entry.card.suit !== leadSuit) return;
+    if (!winnerEntry || cardRankValue(entry.card.rank) > cardRankValue(winnerEntry.card.rank)) {
+      winnerEntry = entry;
+    }
+  });
+
+  return winnerEntry ? winnerEntry.playerId : null;
+}
+
+    function closeModal() {
+      const overlay = document.getElementById('modalOverlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    function openModal({ title, subtitle, buttons, showPlayerHands = false, currentPlayerId = null }) {
+      const overlay = document.getElementById('modalOverlay');
+      const btnBox = document.getElementById('modalButtons');
+      const t = document.getElementById('modalTitle');
+      const sub = document.getElementById('modalSubtitle');
+      const trumpText = document.getElementById('modalTrumpText');
+      const trumpCard = document.getElementById('modalTrumpCard');
+      const playerHandsDiv = document.getElementById('modalPlayerHands');
+
+      t.textContent = title || 'Entscheidung';
+      sub.textContent = subtitle || '';
+
+      btnBox.innerHTML = '';
+      buttons.forEach(b => {
+        const el = document.createElement('button');
+        el.className = 'small-btn';
+        el.type = 'button';
+        el.textContent = b.label;
+        el.onclick = () => { closeModal(); b.onClick(); };
+        btnBox.appendChild(el);
+      });
+
+      trumpCard.className = 'card-small empty';
+      trumpCard.innerHTML = '';
+      if (trumpSuit && trumpRank) {
+        trumpCard.className = 'card-small ' + (isRedSuit(trumpSuit) ? 'red' : 'black');
+        renderCardFace(trumpCard, { suit: trumpSuit, rank: trumpRank });
+        trumpText.textContent = `Trumpf: ${trumpRank} ${suitNameDe(trumpSuit)}`;
+      } else {
+        trumpText.textContent = 'Trumpf: —';
+      }
+
+      // Spieler-Hände anzeigen (nur die des aktuell gefragten Spielers)
+      if (showPlayerHands && currentPlayerId) {
+        playerHandsDiv.style.display = 'block';
+        playerHandsDiv.innerHTML = '';
+        const currentPlayer = players.find(p => p.id === currentPlayerId);
+        if (currentPlayer) {
+          const handDiv = document.createElement('div');
+          handDiv.style.cssText = 'margin-bottom:8px; padding:12px; background:#0f172a; border-radius:6px; font-size:0.85rem; border:1px solid #1f3a3a;';
+          const nameEl = document.createElement('div');
+          nameEl.style.cssText = 'font-weight:600; color:#4ade80; margin-bottom:8px; font-size:0.95rem;';
+          nameEl.textContent = `${currentPlayer.name} – deine Karten:`;
+          handDiv.appendChild(nameEl);
+
+          const cardsEl = document.createElement('div');
+          cardsEl.style.display = 'flex';
+          cardsEl.style.gap = '6px';
+          cardsEl.style.flexWrap = 'wrap';
+          cardsEl.style.justifyContent = 'center';
+
+          if (currentPlayer.hand && currentPlayer.hand.length > 0) {
+            currentPlayer.hand.forEach(card => {
+              const cardDiv = document.createElement('div');
+              cardDiv.className = 'card-small ' + (isRedSuit(card.suit) ? 'red' : 'black');
+              renderCardFace(cardDiv, card);
+              cardsEl.appendChild(cardDiv);
+            });
+          } else {
+            cardsEl.textContent = '(Keine Karten)';
+          }
+
+          handDiv.appendChild(cardsEl);
+          playerHandsDiv.appendChild(handDiv);
+        }
+      } else {
+        playerHandsDiv.style.display = 'none';
+      }
+
+      overlay.style.display = 'flex';
+    }
+
+    function onToggleAutopilot() {
+      window.autopilot = !!document.getElementById('autopilotToggle')?.checked;
+      addLog(window.autopilot ? 'Autopilot aktiviert.' : 'Autopilot deaktiviert.');
+      kickAutopilot();
+    }
+
+    async function runAutopilot() {
+      if (!window.autopilot || autopilotLock) return;
+      autopilotLock = true;
+
+      try {
+        // 1) BLIND-HACK PHASE
+        if (phase === 'dealt_blind') {
+          addLog('Autopilot: Blind-Hack-Runde startet...');
+          await autopilotAskBlindHack();
+          if (blindHackerId) {
+            // Jemand hat blind gehaxt -> zu open_cards
+            addLog('Autopilot: Blind-Hacker gefunden → weiter zu offene Karten.');
+            autopilotLock = false;
+            setTimeout(() => runAutopilot(), 400);
+            return;
+          } else {
+            // Niemand hackt blind -> Karten aufdecken und zu Trumpf-loop
+            addLog('Autopilot: Niemand hackt blind → Karten aufdecken.');
+            revealAllHands();
+            // phase ändert sich jetzt zu open_cards
+            autopilotLock = false;
+            setTimeout(() => runAutopilot(), 400);
+            return;
+          }
+        }
+
+        // 2) TRUMPF-LOOP PHASE (open_cards, aber ohne Hacker noch)
+        if (phase === 'open_cards' && !blindHackerId && !document.querySelector('input[name="hacker"]:checked')) {
+          addLog('Autopilot: Trumpf-Loop startet (bis zu 3 Trumpfe)...');
+          await autopilotLoopTrumps();
+          
+          const hackerEl = document.querySelector('input[name="hacker"]:checked');
+          if (!hackerEl) {
+            // Kein Hacker nach 3 Trumpfen -> Runde beenden
+            addLog('Autopilot: Nach 3 Trumpfen niemand gehaxt → Runde endet.');
+            skipRound();
+            // Zur neuen Runde wechseln
+            autopilotLock = false;
+            setTimeout(() => dealNewRound(), 400);
+            return;
+          }
+          // Hacker wurde gesetzt -> weiter
+        }
+
+        // 3) MITGEHEN & TAUSCH PHASE
+        if (phase === 'open_cards' && document.querySelector('input[name="hacker"]:checked')) {
+          const hackerId = document.querySelector('input[name="hacker"]:checked').value;
+          
+          // Mit/Pass Fragen
+          await autopilotAskMitgehen(hackerId);
+
+          // Tausch-Phase (mit manueller Kartenwahl)
+          addLog('Autopilot: Tauschphase - Spieler wählen manuell...');
+          await autopilotWaitForExchangePhase(hackerId);
+
+          // Zu Stichphase
+          addLog('Autopilot: Tausch fertig → Stichrunde startet.');
+          startTrickPhase();
+          
+          autopilotLock = false;
+          setTimeout(() => runAutopilot(), 400);
+          return;
+        }
+
+        // 4) TRICK PHASE
+        if (phase === 'tricks') {
+          addLog('Autopilot: Stichrunde läuft manuell. Jeder Spieler spielt seine Karte selbst.');
+          autopilotLock = false;
+          return;
+        }
+
+      } catch (e) {
+        console.error('Autopilot Fehler:', e);
+        addLog('Autopilot Fehler: ' + (e?.message || e));
+      } finally {
+        autopilotLock = false;
+      }
+    }
+
+    // ===== NEUE FUNKTION: Trumpf-Loop (bis 3x) =====
+    async function autopilotLoopTrumps() {
+      let trumpCount = 0;
+      const maxTrumps = 3;
+
+      while (trumpCount < maxTrumps && !blindHackerId && !document.querySelector('input[name="hacker"]:checked')) {
+        trumpCount++;
+        addLog(`Autopilot: Trumpf #${trumpCount} → Hack-Frage...`);
+        
+        const someoneHacked = await autopilotAskHacker();
+        
+        if (someoneHacked) {
+          // Hacker wurde gesetzt -> Loop beenden
+          addLog('Autopilot: Jemand gehaxt → Mit/Pass-Phase kommt.');
+          return;
+        } else {
+          // Niemand hackt -> nächster Trumpf (falls weitere da)
+          if (trumpCount < maxTrumps) {
+            addLog(`Autopilot: Niemand hackt → Trumpf wechsel...`);
+            nextTrump();
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      // Nach 3 Trumpfen: niemand gehackt
+      if (!document.querySelector('input[name="hacker"]:checked')) {
+        addLog('Autopilot: 3 Trumpfe vorbei, niemand gehaxt → Runde endet.');
+        // Runde wird später als "skip" behandelt
+      }
+    }
+
+
+
+    function autopilotAskBlindHack() {
+      return new Promise(resolve => {
+        const order = [];
+        for (let i = 0; i < players.length; i++) {
+          const idx = (dealerIndex + 1 + i) % players.length;
+          order.push(players[idx]);
+        }
+
+        let i = 0;
+        const askNext = () => {
+          if (!window.autopilot) return resolve();
+          if (phase !== 'dealt_blind') return resolve();
+          if (blindHackerId) return resolve();
+
+          if (i >= order.length) {
+            addLog('Autopilot: Niemand hackt blind → Karten aufdecken.');
+            revealAllHands();
+            return resolve();
+          }
+
+          const p = order[i++];
+          openModal({
+            title: `${p.name} – Blind Hack?`,
+            subtitle: 'Willst du blind hacken und den Trumpf nehmen?',
+            showPlayerHands: false,
+            buttons: [
+              { label: 'Blind Hack', onClick: () => { blindHack(p.id); resolve(); } },
+              { label: 'Nein', onClick: () => { addLog(`${p.name} passt (blind).`); askNext(); } }
+            ]
+          });
+        };
+
+        askNext();
+      });
+    }
+
+// ===== Explizite Setter (kein Toggle!) =====
+function setHackerExplicit(playerId) {
+  // verhindert Wechsel, sobald ein Hacker fix ist
+  if (tenHackForced) return;
+
+  const r = document.getElementById('hacker-' + playerId);
+  if (!r) return;
+
+  // alle Hacker-Radios aus
+  document.querySelectorAll('input[name="hacker"]').forEach(x => x.checked = false);
+
+  // Ziel setzen
+  r.checked = true;
+
+  // Hacker fixieren (damit niemand mehr hacken kann)
+  setFixedHacker(playerId);
+
+  // Mitgehen des Hackers aus
+  const cb = document.getElementById('mit-' + playerId);
+  if (cb) cb.checked = false;
+
+  updateRolesFromForm();
+
+  // Rollen-Änderung -> Queue reset
+  exchangeQueue = [];
+  exchangeQueueIndex = 0;
+  modeExchange = false;
+  exchangePlayerId = null;
+  selectedForExchange = new Set();
+  updateExchangeButtons();
+}
+
+function setMitExplicit(playerId, value) {
+  if (tenHackForced) return;
+
+  // Hacker darf nicht "Mit" sein
+  const hr = document.querySelector('input[name="hacker"]:checked');
+  if (hr && hr.value === playerId) value = false;
+
+  const cb = document.getElementById('mit-' + playerId);
+  if (!cb) return;
+
+  cb.checked = !!value;
+  updateRolesFromForm();
+
+  // Rollen-Änderung -> Queue reset
+  exchangeQueue = [];
+  exchangeQueueIndex = 0;
+  modeExchange = false;
+  exchangePlayerId = null;
+  selectedForExchange = new Set();
+  updateExchangeButtons();
+}
+
+function setPassExplicit(playerId) {
+  if (tenHackForced) return;
+
+  // Hacker darf nicht passen
+  const hr = document.querySelector('input[name="hacker"]:checked');
+  if (hr && hr.value === playerId) return;
+
+  const cb = document.getElementById('mit-' + playerId);
+  if (cb) cb.checked = false;
+
+  // Hacker-Radio dieses Spielers nur dann aus, wenn Hacker noch nicht fix ist
+  const r = document.getElementById('hacker-' + playerId);
+  if (r && !fixedHackerId) r.checked = false;
+
+  updateRolesFromForm();
+
+  exchangeQueue = [];
+  exchangeQueueIndex = 0;
+  modeExchange = false;
+  exchangePlayerId = null;
+  selectedForExchange = new Set();
+  updateExchangeButtons();
+}
+
+// ===== Autopilot: fragt Hacker (phase open_cards) =====
+async function autopilotAskHacker() {
+  // Falls bereits Hacker gesetzt, ok
+  const existing = document.querySelector('input[name="hacker"]:checked');
+  if (existing) return true;
+
+  // Reihum Spieler fragen (nach Geber)
+  for (let i = 0; i < players.length; i++) {
+    const idx = (dealerIndex + 1 + i) % players.length;
+    const p = players[idx];
+    
+    const answer = await new Promise(resolve => {
+      openModal({
+        title: `${p.name} – Hacken?`,
+        subtitle: `Willst du mit diesem Trumpf hacken?`,
+        showPlayerHands: true,
+        currentPlayerId: p.id,
+        buttons: [
+          { label: 'Hack', onClick: () => resolve('hack') },
+          { label: 'Nein', onClick: () => resolve('no') }
+        ]
+      });
+    });
+
+    if (answer === 'hack') {
+      setHackerExplicit(p.id);
+      addLog(`${p.name} hackt.`);
+      return true;
+    } else {
+      addLog(`${p.name} passt (Hack).`);
+    }
+  }
+  return false;
+}
+
+// ===== Autopilot: fragt Mitgehen (phase open_cards, Hacker existiert) =====
+async function autopilotAskMitgehen(hackerId) {
+  // Alle außer Hacker in Dealer-Reihenfolge fragen
+  for (let i = 0; i < players.length; i++) {
+    const idx = (dealerIndex + 1 + i) % players.length;
+    const p = players[idx];
+    if (p.id === hackerId) continue;  // Hacker nicht fragen
+
+    const answer = await new Promise(resolve => {
+      openModal({
+        title: `${p.name} – Mitgehen?`,
+        subtitle: `Willst du mitgehen (oder passen)?`,
+        showPlayerHands: true,
+        currentPlayerId: p.id,
+        buttons: [
+          { label: 'Mit', onClick: () => resolve('mit') },
+          { label: 'Pass', onClick: () => resolve('pass') }
+        ]
+      });
+    });
+
+    if (answer === 'mit') {
+      setMitExplicit(p.id, true);
+      addLog(`${p.name} geht mit.`);
+    } else {
+      setPassExplicit(p.id);
+      addLog(`${p.name} passt.`);
+    }
+  }
+
+  exchangeQueue = computeExchangeQueue();
+  exchangeQueueIndex = 0;
+  updateExchangeButtons();
+
+  addLog('Autopilot: Rollen gesetzt → Spieler starten Tausch...');
+}
+
+// ===== Autopilot: Wartet auf Tausch-Phase (Spieler wählen manuell) =====
+async function autopilotWaitForExchangePhase(hackerId) {
+  // Compute the exchange queue (Hacker + Mitgänger)
+  exchangeQueue = computeExchangeQueue();
+  exchangeQueueIndex = 0;
+
+  if (!exchangeQueue.length) {
+    addLog('Autopilot: Keine Spieler zum Tauschen.');
+    return;
+  }
+
+  // Für jeden Spieler: Frage + interaktiver Tausch
+  for (let i = 0; i < exchangeQueue.length && window.autopilot; i++) {
+    const playerId = exchangeQueue[i];
+    const player = players.find(p => p.id === playerId);
+    if (!player) continue;
+
+    addLog(`Autopilot: ${player.name} ist zum Tauschen an der Reihe...`);
+
+    // SCHRITT 1: Modal-Frage - wie viele Karten?
+    const wantExchange = await new Promise(resolve => {
+      openModal({
+        title: `${player.name} – Tausch durchführen?`,
+        subtitle: `Möchtest du Karten tauschen? (Bewege Maus über deine Karten um sie zu wählen)`,
+        showPlayerHands: true,
+        currentPlayerId: playerId,
+        buttons: [
+          { label: 'Nein, 0', onClick: () => resolve(false) },
+          { label: 'Ja, ich tausche', onClick: () => resolve(true) }
+        ]
+      });
+    });
+
+    if (!wantExchange) {
+      addLog(`${player.name} tauscht keine Karten.`);
+      continue;
+    }
+
+    // SCHRITT 2: Öffne interaktiven Tauschmodus
+    closeModal();
+    modeExchange = true;
+    exchangePlayerId = playerId;
+    selectedForExchange = new Set();
+    updateTableHands();
+
+    document.getElementById('roundInfo').textContent = 
+      `${player.name}: Markiere die Karten zum Tauschen und klicke \"Tausch ausführen\". (Max. 60 Sek)`;
+
+    // Warte bis Spieler "Tausch ausführen" klickt oder 60 Sekunden abgelaufen
+    await new Promise(resolve => {
+      window.autopilotExchangeResolve = resolve;
+      setTimeout(() => {
+        // Auto-Fallback nach 60 Sekunden: mache Tausch mit gewählten Karten
+        if (window.autopilot && modeExchange && exchangePlayerId === playerId) {
+          executeExchange();
+        }
+        resolve();
+      }, 60000);
+    });
+
+    window.autopilotExchangeResolve = null;
+    modeExchange = false;
+    exchangePlayerId = null;
+    selectedForExchange = new Set();
+    updateTableHands();
+  }
+
+  addLog('Autopilot: Tausch-Phase abgeschlossen.');
+}
+
+// ===== NEUE FUNKTION: Autopilot moderiert Stichrunde =====
+async function autopilotPlayTricks() {
+  if (phase !== 'tricks' || !activePlayerIds.length) {
+    addLog('Autopilot: Fehler – Stichrunde nicht korrekt gestartet.');
+    return;
+  }
+
+  addLog(`Autopilot: Stichrunde moderiert (${activePlayerIds.length} Spieler, max 4 Stiche).`);
+
+  // 4 Stiche spielen
+  while (tricksPlayed < 4 && window.autopilot && activePlayerIds.some(id => {
+    const p = players.find(pl => pl.id === id);
+    return p && p.hand.length > 0;
+  })) {
+    
+    // Ein Stich: Alle 4 Spieler spielen reihum
+    while (currentTrick.length < activePlayerIds.length && window.autopilot) {
+      const playerId = activePlayerIds[currentActiveIndex];
+      const player = players.find(p => p.id === playerId);
+      
+      if (!player || player.hand.length === 0) {
+        // Spieler hat keine Karten mehr -> nächster
+        currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
+        if (currentTrick.length > 0 && currentTrick.length < activePlayerIds.length) {
+          continue;
+        } else {
+          break;
+        }
+      }
+
+      // Auto-Kartenwahl
+      const cardIdx = autopilotChooseBestCard(playerId);
+      if (cardIdx >= 0) {
+        playCard(playerId, cardIdx);
+        
+        // Wenn playCard() einen Stich abgeschlossen hat, break out
+        if (currentTrick.length === 0) {
+          break;
+        }
+      } else {
+        break;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
+    // Ist Stich vorbei?
+    if (tricksPlayed >= 4) break;
+    
+    await new Promise(resolve => setTimeout(resolve, 400));
+  }
+
+  addLog('Autopilot: Alle Stiche spielen fertig.');
+}
+
+// ===== Autopilot: Wählt beste Karte basierend auf einfacher Logik =====
+function autopilotChooseBestCard(playerId) {
+  const player = players.find(p => p.id === playerId);
+  if (!player || !player.hand.length) return -1;
+
+  const hand = player.hand;
+  
+  // Wenn Stich leer: Erste Karte spielen (oder Hacker-Logik)
+  if (currentTrick.length === 0) {
+    // Hacker weitet, alle anderen spielen hohe Karten
+    if (playerId !== (document.querySelector('input[name="hacker"]:checked')?.value)) {
+      // Mit-Spieler: Versuche hoch zu spielen
+      let bestIdx = 0;
+      for (let i = 1; i < hand.length; i++) {
+        if (cardRankValue(hand[i].rank) > cardRankValue(hand[bestIdx].rank)) {
+          bestIdx = i;
+        }
+      }
+      return bestIdx;
+    }
+    return 0; // Hacker spielt erste Karte
+  }
+
+  const leadSuit = currentTrick[0].card.suit;
+  const hasLead = hand.some(c => c.suit === leadSuit);
+  const hasTrump = trumpSuit ? hand.some(c => c.suit === trumpSuit) : false;
+
+  // Regel 1: Bediene Farbe wenn vorhanden
+  if (hasLead) {
+    // Finde beste Karte der angesagten Farbe
+    let bestIdx = -1;
+    let bestValue = -1;
+    for (let i = 0; i < hand.length; i++) {
+      if (hand[i].suit === leadSuit) {
+        const val = cardRankValue(hand[i].rank);
+        if (val > bestValue) {
+          bestValue = val;
+          bestIdx = i;
+        }
+      }
+    }
+    // Mit-Spieler spielen hoch, Hacker tiefer
+    if (playerId === (document.querySelector('input[name="hacker"]:checked')?.value)) {
+      // Hacker: Tiefe Karte spielen (Stich abgeben)
+      for (let i = hand.length - 1; i >= 0; i--) {
+        if (hand[i].suit === leadSuit) return i;
+      }
+    }
+    return bestIdx >= 0 ? bestIdx : 0;
+  }
+
+  // Regel 2: Spielen Trumpf wenn Farbe nicht vorhanden
+  if (!hasLead && hasTrump) {
+    // Finde tiefsten Trumpf (spare hohe)
+    for (let i = hand.length - 1; i >= 0; i--) {
+      if (hand[i].suit === trumpSuit) return i;
+    }
+  }
+
+  // Regel 3: Spielen beliebige Karte
+  return hand.length > 0 ? hand.length - 1 : 0;
+}
+
+
+    // Button "Spieler fragen" -> nutzt Autopilot/Modal statt confirm
+    function promptHackMitPassSequence() {
+  if (!players.length) return;
+
+  if (tenHackForced) {
+    alert('10er-Hacken: Rollen sind fix. Kein Popup nötig.');
+    return;
+  }
+
+  if (phase === 'dealt_blind') {
+    runAutopilot();
+  } else if (phase === 'open_cards') {
+    runAutopilot();
+  } else {
+    alert('Diese Funktion ist nur in den Phasen \"Blind-Hack\" und \"Offene Karten\" verfügbar.');
+  }
+}
+
+    function updateExchangeButtons() {
+  // setzt "Fertig" Buttons sinnvoll enabled/disabled
+  players.forEach(p => {
+    const b = document.getElementById('btn-done-' + p.id);
+    if (!b) return;
+
+    // Standard: aus
+    b.disabled = true;
+
+    if (phase !== 'open_cards') return;
+    if (tenHackForced) return;
+
+    const hackerRadio = document.querySelector('input[name="hacker"]:checked');
+    if (!hackerRadio) return;
+
+    // Queue falls nötig berechnen
+    if (!exchangeQueue.length) {
+      exchangeQueue = computeExchangeQueue();
+      exchangeQueueIndex = 0;
+    }
+    if (!exchangeQueue.length) return;
+
+    const currentId = exchangeQueue[exchangeQueueIndex];
+    if (p.id === currentId) b.disabled = false;
+  });
+}
+
+function markExchangeDone(playerId) {
+  if (tenHackForced) {
+    alert('Bei 10er-Hacken darf niemand tauschen – direkt Stichrunde starten.');
+    return;
+  }
+  if (phase !== 'open_cards') {
+    alert('„Fertig“ ist nur in der Tauschphase (offene Karten) relevant.');
+    return;
+  }
+
+  const hackerRadio = document.querySelector('input[name="hacker"]:checked');
+  if (!hackerRadio) {
+    alert('Bitte zuerst einen Hacker wählen.');
+    return;
+  }
+
+  // Queue initialisieren
+  if (!exchangeQueue.length) {
+    exchangeQueue = computeExchangeQueue();
+    exchangeQueueIndex = 0;
+  }
+
+  if (!exchangeQueue.includes(playerId)) {
+    alert('Dieser Spieler ist nicht beteiligt (Pass) und kann nicht „fertig“ melden.');
+    return;
+  }
+
+  const currentId = exchangeQueue[exchangeQueueIndex];
+  if (playerId !== currentId) {
+    const currentName = players.find(p => p.id === currentId)?.name || 'nächster Spieler';
+    alert(`Reihenfolge! Jetzt ist ${currentName} dran.`);
+    return;
+  }
+
+  const p = players.find(pl => pl.id === playerId);
+  if (!p) return;
+
+  // falls er gerade im Markiermodus ist: abbrechen
+  if (modeExchange && exchangePlayerId === playerId) {
+    modeExchange = false;
+    exchangePlayerId = null;
+    selectedForExchange = new Set();
+  }
+
+  addLog(`${p.name} ist fertig (kein weiterer Tausch).`);
+
+  exchangeQueueIndex++;
+
+  // Autopilot-Signal: Nächster Spieler ist dran
+  if (window.autopilot && window.autopilotExchangeResolve) {
+    window.autopilotExchangeResolve();
+  }
+
+openNextExchangeTurnIfAny();
+
+if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
+  addLog('Autopilot: Alle fertig → Stichrunde startet.');
+  setTimeout(startTrickPhase, 80);
+}
+
+
+  // Alle fertig -> Autopilot startet Stichrunde
+  document.getElementById('roundInfo').textContent =
+    'Alle beteiligten Spieler sind fertig mit dem Tausch.\n' +
+    'Als nächstes: Stichrunde starten.';
+  updateTableHands();
+  updateExchangeButtons();
+
+  if (window.autopilot) {
+    addLog('Autopilot: Alle fertig → Stichrunde startet.');
+    setTimeout(startTrickPhase, 80);
+  }
+}
+
+    function exportRuntimeState() {
+      const roleState = {};
+      players.forEach(p => {
+        roleState[p.id] = {
+          hackerChecked: !!document.getElementById('hacker-' + p.id)?.checked,
+          hackerDisabled: !!document.getElementById('hacker-' + p.id)?.disabled,
+          mitChecked: !!document.getElementById('mit-' + p.id)?.checked,
+          mitDisabled: !!document.getElementById('mit-' + p.id)?.disabled,
+          stichInput: document.getElementById('stich-' + p.id)?.value || '0'
+        };
+      });
+
+      const endSummaryEl = document.getElementById('endSummary');
+      const roundInfoEl = document.getElementById('roundInfo');
+      const tabTableActive = document.getElementById('tab-table')?.classList.contains('active');
+
+      return {
+        baseStake,
+        pot,
+        roundNumber,
+        players: players.map(p => ({
+          id: p.id,
+          name: p.name,
+          balance: p.balance,
+          hand: Array.isArray(p.hand) ? p.hand.map(c => ({ suit: c.suit, rank: c.rank })) : []
+        })),
+        trumpSuit,
+        trumpRank,
+        trumpCardObj: trumpCardObj ? { suit: trumpCardObj.suit, rank: trumpCardObj.rank } : null,
+        trumpDrawCount,
+        deck: deck.map(c => ({ suit: c.suit, rank: c.rank })),
+        phase,
+        cardsFaceDown,
+        blindHackerId,
+        dealerIndex,
+        tenHackForced,
+        fixedHackerId,
+        modeExchange,
+        exchangePlayerId,
+        selectedForExchange: Array.from(selectedForExchange || []),
+        exchangeQueue: Array.isArray(exchangeQueue) ? [...exchangeQueue] : [],
+        exchangeQueueIndex,
+        tricks: { ...tricks },
+        currentTrick: (currentTrick || []).map(e => ({
+          playerId: e.playerId,
+          card: e.card ? { suit: e.card.suit, rank: e.card.rank } : null
+        })),
+        activePlayerIds: Array.isArray(activePlayerIds) ? [...activePlayerIds] : [],
+        currentActiveIndex,
+        tricksPlayed,
+        historyRows: Array.isArray(historyRows) ? JSON.parse(JSON.stringify(historyRows)) : [],
+        roleState,
+        ui: {
+          setupVisible: document.getElementById('setup')?.style.display !== 'none',
+          gameVisible: document.getElementById('game')?.style.display !== 'none',
+          activeView: tabTableActive ? 'table' : 'admin',
+          roundInfoText: roundInfoEl ? roundInfoEl.textContent : '',
+          endSummaryText: endSummaryEl ? endSummaryEl.textContent : '',
+          endSummaryVisible: endSummaryEl ? endSummaryEl.style.display !== 'none' : false,
+          autopilot: !!window.autopilot
+        }
+      };
+    }
+
+    function applyRuntimeState(state, opts = {}) {
+      if (!state || typeof state !== 'object') return;
+
+      online.isApplyingRemote = !!opts.fromRemote;
+      try {
+        baseStake = Number(state.baseStake) || 1;
+        pot = Number(state.pot) || 0;
+        roundNumber = Number(state.roundNumber) || 0;
+        players = (state.players || []).map((p, i) => ({
+          id: p.id || ('P' + i),
+          name: p.name || ('Spieler ' + (i + 1)),
+          balance: Number(p.balance) || 0,
+          hand: Array.isArray(p.hand) ? p.hand.map(c => ({ suit: c.suit, rank: c.rank })) : []
+        }));
+
+        trumpSuit = state.trumpSuit || null;
+        trumpRank = state.trumpRank || null;
+        trumpCardObj = state.trumpCardObj ? { suit: state.trumpCardObj.suit, rank: state.trumpCardObj.rank } : null;
+        trumpDrawCount = Number(state.trumpDrawCount) || 0;
+        deck = Array.isArray(state.deck) ? state.deck.map(c => ({ suit: c.suit, rank: c.rank })) : [];
+        phase = state.phase || 'idle';
+        cardsFaceDown = !!state.cardsFaceDown;
+        blindHackerId = state.blindHackerId || null;
+        dealerIndex = Number.isInteger(state.dealerIndex) ? state.dealerIndex : -1;
+        tenHackForced = !!state.tenHackForced;
+        fixedHackerId = state.fixedHackerId || null;
+        modeExchange = !!state.modeExchange;
+        exchangePlayerId = state.exchangePlayerId || null;
+        selectedForExchange = new Set(Array.isArray(state.selectedForExchange) ? state.selectedForExchange : []);
+        exchangeQueue = Array.isArray(state.exchangeQueue) ? [...state.exchangeQueue] : [];
+        exchangeQueueIndex = Number(state.exchangeQueueIndex) || 0;
+        tricks = state.tricks ? { ...state.tricks } : {};
+        currentTrick = Array.isArray(state.currentTrick) ? state.currentTrick.map(e => ({
+          playerId: e.playerId,
+          card: e.card ? { suit: e.card.suit, rank: e.card.rank } : null
+        })) : [];
+        activePlayerIds = Array.isArray(state.activePlayerIds) ? [...state.activePlayerIds] : [];
+        currentActiveIndex = Number(state.currentActiveIndex) || 0;
+        tricksPlayed = Number(state.tricksPlayed) || 0;
+        historyRows = Array.isArray(state.historyRows) ? JSON.parse(JSON.stringify(state.historyRows)) : [];
+
+        const setupVisible = !!state.ui?.setupVisible;
+        const gameVisible = !!state.ui?.gameVisible;
+        document.getElementById('setup').style.display = setupVisible ? 'block' : 'none';
+        document.getElementById('game').style.display = gameVisible ? 'block' : 'none';
+        document.getElementById('baseStake').value = baseStake;
+        document.getElementById('numPlayers').value = String(players.length || 4);
+        initNameInputs();
+        players.forEach((p, i) => {
+          const inp = document.getElementById('name-setup-' + i);
+          if (inp) inp.value = p.name;
+        });
+
+        if (gameVisible) {
+          buildRoundPlayerUI();
+          buildHistoryHeader();
+          rebuildHistoryTable();
+          buildTableLayout();
+          updatePotDisplays();
+          updateScoreboard();
+          updateTrumpDisplay();
+          updateCurrentTrickDisplay();
+          updateTrickCountersUI();
+          updateCurrentTurnHighlight();
+          updatePhaseUI();
+          updateExchangeButtons();
+
+          const roleState = state.roleState || {};
+          players.forEach(p => {
+            const rs = roleState[p.id];
+            if (!rs) return;
+            const h = document.getElementById('hacker-' + p.id);
+            const m = document.getElementById('mit-' + p.id);
+            const st = document.getElementById('stich-' + p.id);
+            if (h) {
+              h.checked = !!rs.hackerChecked;
+              h.disabled = !!rs.hackerDisabled;
+            }
+            if (m) {
+              m.checked = !!rs.mitChecked;
+              m.disabled = !!rs.mitDisabled;
+            }
+            if (st) st.value = rs.stichInput || '0';
+          });
+          updateRolesFromForm();
+
+          const endBox = document.getElementById('endSummary');
+          const infoBox = document.getElementById('roundInfo');
+          if (infoBox) infoBox.textContent = state.ui?.roundInfoText || '';
+          if (endBox) {
+            endBox.textContent = state.ui?.endSummaryText || '';
+            endBox.style.display = state.ui?.endSummaryVisible ? 'block' : 'none';
+          }
+
+          window.autopilot = !!state.ui?.autopilot;
+          const autoToggle = document.getElementById('autopilotToggle');
+          if (autoToggle) autoToggle.checked = window.autopilot;
+          switchView(state.ui?.activeView === 'admin' ? 'admin' : 'table');
+        }
+      } finally {
+        const snap = JSON.stringify(exportRuntimeState());
+        online.lastSnapshotHash = snap;
+        online.isApplyingRemote = false;
+      }
+    }
+
+    function syncRuntimeState() {
+      if (!online.enabled || !online.connected || !online.socket || !online.roomCode) return;
+      if (online.isApplyingRemote) return;
+      if (!players.length) return;
+
+      const snapshot = exportRuntimeState();
+      const hash = JSON.stringify(snapshot);
+      if (hash === online.lastSnapshotHash) return;
+      const now = Date.now();
+      if (now - online.lastSentAt < 220) return;
+
+      online.lastSnapshotHash = hash;
+      online.lastSentAt = now;
+      online.socket.emit('state:sync', {
+        roomCode: online.roomCode,
+        state: snapshot
+      });
+    }
+
+    setInterval(syncRuntimeState, 350);
+
+    // --- Speicherung: nur Score / Pot / History ---
+    function saveState() {
+      if (!players.length) return;
+      const state = {
+        baseStake,
+        players: players.map(p => ({ id: p.id, name: p.name, balance: p.balance })),
+        pot,
+        roundNumber,
+        historyRows
+      };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch (e) { console.warn('Speichern fehlgeschlagen', e); }
+    }
+
+    function restoreSavedScoreState(state) {
+      baseStake = state.baseStake || 1;
+      players = (state.players || []).map((p, i) => ({
+        id: p.id || ('P' + i),
+        name: p.name || ('Spieler ' + (i + 1)),
+        balance: typeof p.balance === 'number' ? p.balance : 0,
+        hand: []
+      }));
+      pot = state.pot || 0;
+      roundNumber = state.roundNumber || 0;
+      historyRows = state.historyRows || [];
+
+      trumpSuit = null;
+      trumpRank = null;
+      trumpCardObj = null;
+      trumpDrawCount = 0;
+      deck = [];
+      phase = 'idle';
+      cardsFaceDown = false;
+      blindHackerId = null;
+      dealerIndex = -1;
+      tenHackForced = false;
+      fixedHackerId = null;
+      modeExchange = false;
+      exchangePlayerId = null;
+      selectedForExchange = new Set();
+      exchangeQueue = [];
+      exchangeQueueIndex = 0;
+      tricks = {};
+      currentTrick = [];
+      activePlayerIds = [];
+      currentActiveIndex = 0;
+      tricksPlayed = 0;
+
+      document.getElementById('baseStake').value = baseStake;
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+
+      buildRoundPlayerUI();
+      resetRoleInputsDisabled();
+      buildHistoryHeader();
+      rebuildHistoryTable();
+      buildTableLayout();
+      updatePotDisplays();
+      updateScoreboard();
+      updateTrumpDisplay();
+      updateCurrentTrickDisplay();
+      updateTrickCountersUI();
+      updateCurrentTurnHighlight();
+      updatePhaseUI();
+
+      const log = document.getElementById('moderatorLog');
+      if (log) log.innerHTML = '';
+      addLog('Gespeichertes Spiel geladen. Kontostände & Pot wiederhergestellt.');
+
+      document.getElementById('roundInfo').textContent =
+        'Gespeichertes Spiel geladen. Nächster Schritt: Am Spieltisch „Karten geben (neu)“ drücken, um eine neue Runde zu starten.';
+      switchView('table');
+    }
+
+    window.addEventListener('load', () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          const use = confirm('Es wurde ein gespeichertes Spiel gefunden. Möchtest du es fortsetzen?');
+          if (use) restoreSavedScoreState(data);
+        }
+      } catch (e) {
+        console.warn('Fehler beim Laden des gespeicherten Spiels', e);
+      }
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
+

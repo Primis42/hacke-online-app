@@ -519,7 +519,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="setupNamesCard">
         <div class="section-title">Spielernamen</div>
         <div id="playerNameContainer"></div>
       </div>
@@ -777,6 +777,7 @@
       socket: null,
       connected: false,
       roomCode: '',
+      roomPlayers: [],
       playerName: '',
       serverUrl: '',
       isApplyingRemote: false,
@@ -839,6 +840,25 @@
       el.textContent = msg || 'Noch kein Raum verbunden.';
     }
 
+    function updateSetupModeUI() {
+      const onlineEnabled = !!document.getElementById('onlineEnabled')?.checked;
+      const namesCard = document.getElementById('setupNamesCard');
+      const numPlayersSelect = document.getElementById('numPlayers');
+      if (namesCard) namesCard.style.display = onlineEnabled ? 'none' : 'block';
+      if (numPlayersSelect) numPlayersSelect.disabled = onlineEnabled;
+    }
+
+    function applyRoomMeta(meta) {
+      if (!meta) return;
+      online.roomPlayers = Array.isArray(meta.players)
+        ? meta.players.map(p => ({ socketId: p.socketId, name: (p.name || '').trim() || 'Spieler' }))
+        : [];
+      const list = (online.roomPlayers || []).map(p => p.name).join(', ');
+      setOnlineRoomInfo(`Raum ${meta.code} | Spieler: ${list || '–'}`);
+      const np = document.getElementById('numPlayers');
+      if (np && online.roomPlayers.length > 0) np.value = String(online.roomPlayers.length);
+    }
+
     function normalizeServerUrl(raw) {
       const input = String(raw || '').trim();
       if (!input) return 'http://localhost:3000';
@@ -848,7 +868,6 @@
     function buildShareLink(serverUrl, roomCode) {
       const code = String(roomCode || '').toUpperCase().trim();
       if (!code) return '';
-      const playerName = (document.getElementById('onlinePlayerName')?.value || '').trim();
 
       let baseUrl = '';
 
@@ -871,7 +890,6 @@
       const u = new URL(baseUrl);
       u.searchParams.set('room', code);
       u.searchParams.set('server', normalizeServerUrl(serverUrl));
-      if (playerName) u.searchParams.set('name', playerName);
       return u.toString();
     }
 
@@ -962,9 +980,7 @@
             setOnlineStatus(`Verbindung fehlgeschlagen: ${err2?.message || 'unbekannt'}`, true);
           });
           online.socket.on('room:meta', (meta) => {
-            if (!meta) return;
-            const list = (meta.players || []).map(p => p.name).join(', ');
-            setOnlineRoomInfo(`Raum ${meta.code} | Spieler: ${list || '–'}`);
+            applyRoomMeta(meta);
           });
           online.socket.on('state:update', (payload) => {
             if (!payload || !payload.state) return;
@@ -977,9 +993,7 @@
       });
 
       online.socket.on('room:meta', (meta) => {
-        if (!meta) return;
-        const list = (meta.players || []).map(p => p.name).join(', ');
-        setOnlineRoomInfo(`Raum ${meta.code} | Spieler: ${list || '–'}`);
+        applyRoomMeta(meta);
       });
 
       online.socket.on('state:update', (payload) => {
@@ -1021,6 +1035,7 @@
         if (toggle) toggle.checked = true;
         online.roomCode = res.roomCode;
         document.getElementById('onlineRoomCode').value = res.roomCode;
+        applyRoomMeta(res.room);
         refreshShareLink();
         saveOnlinePrefs();
         setOnlineRoomInfo(`Raum ${res.roomCode} erstellt.`);
@@ -1055,6 +1070,7 @@
         if (toggle) toggle.checked = true;
         online.roomCode = res.roomCode;
         document.getElementById('onlineRoomCode').value = res.roomCode;
+        applyRoomMeta(res.room);
         refreshShareLink();
         saveOnlinePrefs();
         setOnlineStatus(`Raum ${res.roomCode} beigetreten.`);
@@ -1283,19 +1299,18 @@
 
     document.getElementById('numPlayers').addEventListener('change', initNameInputs);
     initNameInputs();
+    updateSetupModeUI();
     setOnlineStatus('Offline');
     setOnlineRoomInfo('Noch kein Raum verbunden.');
     document.getElementById('onlineServerUrl').value = getDefaultServerUrl();
     const onlinePrefs = readOnlinePrefs();
-    if (onlinePrefs && onlinePrefs.playerName && !document.getElementById('onlinePlayerName').value) {
-      document.getElementById('onlinePlayerName').value = onlinePrefs.playerName;
-    }
     if (onlinePrefs && onlinePrefs.roomCode && !document.getElementById('onlineRoomCode').value) {
       document.getElementById('onlineRoomCode').value = String(onlinePrefs.roomCode).toUpperCase();
     }
     if (onlinePrefs && onlinePrefs.enabled) {
       document.getElementById('onlineEnabled').checked = true;
       online.enabled = true;
+      updateSetupModeUI();
     }
     refreshShareLink();
     document.getElementById('onlineServerUrl').addEventListener('input', () => { refreshShareLink(); saveOnlinePrefs(); });
@@ -1303,6 +1318,7 @@
     document.getElementById('onlinePlayerName').addEventListener('input', saveOnlinePrefs);
     document.getElementById('onlineEnabled').addEventListener('change', (e) => {
       online.enabled = !!e.target.checked;
+      updateSetupModeUI();
       saveOnlinePrefs();
       if (!online.enabled) {
         if (online.socket) {
@@ -1311,6 +1327,7 @@
         online.socket = null;
         online.connected = false;
         online.roomCode = '';
+        online.roomPlayers = [];
         online.lastSnapshotHash = '';
         setOnlineStatus('Offline');
         setOnlineRoomInfo('Noch kein Raum verbunden.');
@@ -1322,14 +1339,13 @@
         const q = new URLSearchParams(window.location.search);
         const qServer = q.get('server');
         const qRoom = q.get('room');
-        const qName = q.get('name');
         if (qServer) document.getElementById('onlineServerUrl').value = normalizeServerUrl(qServer);
         if (qRoom) {
           document.getElementById('onlineRoomCode').value = String(qRoom).toUpperCase().trim();
           document.getElementById('onlineEnabled').checked = true;
           online.enabled = true;
+          updateSetupModeUI();
         }
-        if (qName) document.getElementById('onlinePlayerName').value = qName;
         refreshShareLink();
         saveOnlinePrefs();
       } catch (e) {}
@@ -1355,15 +1371,27 @@
           errorBox.textContent = 'Online-Modus ist aktiv. Bitte zuerst einen Raum erstellen oder beitreten.';
           return;
         }
+        if (!online.roomPlayers || online.roomPlayers.length < 2) {
+          errorBox.style.display = 'block';
+          errorBox.textContent = 'Bitte warten, bis mindestens 2 Spieler im Raum verbunden sind.';
+          return;
+        }
       }
 
-      const num = intVal(document.getElementById('numPlayers').value || 4);
       players = [];
-      for (let i = 0; i < num; i++) {
-        const input = document.getElementById('name-setup-' + i);
-        let name = input ? input.value.trim() : '';
-        if (!name) name = `Spieler ${i + 1}`;
-        players.push({ id: 'P' + i, name, balance: 0, hand: [] });
+      if (online.enabled) {
+        online.roomPlayers.forEach((rp, i) => {
+          const name = (rp.name || '').trim() || `Spieler ${i + 1}`;
+          players.push({ id: 'P' + i, name, balance: 0, hand: [] });
+        });
+      } else {
+        const num = intVal(document.getElementById('numPlayers').value || 4);
+        for (let i = 0; i < num; i++) {
+          const input = document.getElementById('name-setup-' + i);
+          let name = input ? input.value.trim() : '';
+          if (!name) name = `Spieler ${i + 1}`;
+          players.push({ id: 'P' + i, name, balance: 0, hand: [] });
+        }
       }
 
       pot = 0;

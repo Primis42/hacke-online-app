@@ -537,7 +537,7 @@
           </div>
           <div>
             <label class="label" for="onlinePlayerName">Dein Name (Online)</label>
-            <input id="onlinePlayerName" type="text" placeholder="z. B. Yael" />
+            <input id="onlinePlayerName" type="text" placeholder="z. B. Yael" autocomplete="off" />
           </div>
         </div>
         <div class="grid-setup">
@@ -857,6 +857,28 @@
       setOnlineRoomInfo(`Raum ${meta.code} | Spieler: ${list || '–'}`);
       const np = document.getElementById('numPlayers');
       if (np && online.roomPlayers.length > 0) np.value = String(online.roomPlayers.length);
+    }
+
+    function getLocalSocketId() {
+      return online.socket?.id || null;
+    }
+
+    function getLocalGamePlayerId() {
+      if (!online.enabled) return null;
+      const sid = getLocalSocketId();
+      if (!sid) return null;
+      const bySocket = players.find(p => p.socketId && p.socketId === sid);
+      if (bySocket) return bySocket.id;
+      const localName = (online.playerName || '').trim().toLowerCase();
+      if (!localName) return null;
+      const byName = players.find(p => (p.name || '').trim().toLowerCase() === localName);
+      return byName ? byName.id : null;
+    }
+
+    function canControlPlayer(playerId) {
+      if (!online.enabled) return true;
+      const localId = getLocalGamePlayerId();
+      return !!localId && localId === playerId;
     }
 
     function normalizeServerUrl(raw) {
@@ -1382,7 +1404,7 @@
       if (online.enabled) {
         online.roomPlayers.forEach((rp, i) => {
           const name = (rp.name || '').trim() || `Spieler ${i + 1}`;
-          players.push({ id: 'P' + i, name, balance: 0, hand: [] });
+          players.push({ id: 'P' + i, name, balance: 0, hand: [], socketId: rp.socketId || null });
         });
       } else {
         const num = intVal(document.getElementById('numPlayers').value || 4);
@@ -1390,7 +1412,7 @@
           const input = document.getElementById('name-setup-' + i);
           let name = input ? input.value.trim() : '';
           if (!name) name = `Spieler ${i + 1}`;
-          players.push({ id: 'P' + i, name, balance: 0, hand: [] });
+          players.push({ id: 'P' + i, name, balance: 0, hand: [], socketId: null });
         }
       }
 
@@ -1457,6 +1479,7 @@
       container.innerHTML = '';
 
       players.forEach(p => {
+        const isLocalControl = canControlPlayer(p.id);
         const card = document.createElement('div');
         card.className = 'player-card';
 
@@ -1472,6 +1495,7 @@
         radio.name = 'hacker';
         radio.id = 'hacker-' + p.id;
         radio.value = p.id;
+        if (online.enabled && !isLocalControl) radio.disabled = true;
         radio.addEventListener('change', () => onHackerRadioChange(p.id));
         const labelH = document.createElement('label');
         labelH.htmlFor = radio.id;
@@ -1485,6 +1509,7 @@
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.id = 'mit-' + p.id;
+        if (online.enabled && !isLocalControl) cb.disabled = true;
         cb.addEventListener('change', () => onMitCheckboxChange(p.id));
         const labelM = document.createElement('label');
         labelM.htmlFor = cb.id;
@@ -1809,6 +1834,7 @@
     }
 
     function createTablePlayerBox(p) {
+      const isLocalControl = canControlPlayer(p.id);
       const box = document.createElement('div');
       box.className = 'table-player-box';
       box.id = 'table-box-' + p.id;
@@ -1886,6 +1912,15 @@
       btnDone.id = 'btn-done-' + p.id;
       btnDone.onclick = () => markExchangeDone(p.id);
 
+      if (online.enabled && !isLocalControl) {
+        btnBlind.disabled = true;
+        btnHack.disabled = true;
+        btnMit.disabled = true;
+        btnPass.disabled = true;
+        btnSwap.disabled = true;
+        btnDone.disabled = true;
+      }
+
       controls.appendChild(btnBlind);
       controls.appendChild(btnHack);
       controls.appendChild(btnMit);
@@ -1954,11 +1989,15 @@
               renderCardFace(cardDiv, c);
 
               if (modeExchange && p.id === exchangePlayerId) {
-                cardDiv.style.cursor = 'pointer';
-                cardDiv.onclick = () => toggleExchangeSelection(i);
+                if (canControlPlayer(p.id)) {
+                  cardDiv.style.cursor = 'pointer';
+                  cardDiv.onclick = () => toggleExchangeSelection(i);
+                }
               } else if (!modeExchange && phase === 'tricks' && activePlayerIds.includes(p.id)) {
-                cardDiv.style.cursor = 'pointer';
-                cardDiv.onclick = () => playCard(p.id, i);
+                if (canControlPlayer(p.id)) {
+                  cardDiv.style.cursor = 'pointer';
+                  cardDiv.onclick = () => playCard(p.id, i);
+                }
               }
             } else {
               cardDiv.className = 'card-small empty';
@@ -2003,6 +2042,10 @@
       }
     }
             function setPlayerDecision(playerId, decision) {
+      if (online.enabled && !canControlPlayer(playerId)) {
+        alert('Im Online-Modus kann nur der eigene Spieler Entscheidungen treffen.');
+        return;
+      }
       if (tenHackForced) {
         alert('Bei 10er-Hacken sind Hacker und Mitgeher vorgegeben und können nicht geändert werden.');
         return;
@@ -2435,6 +2478,10 @@ function computeExchangeQueue() {
 }
 
 function startExchangeForPlayer(playerId) {
+  if (online.enabled && !canControlPlayer(playerId)) {
+    alert('Im Online-Modus kann nur der betroffene Spieler seinen Tausch starten.');
+    return;
+  }
   if (tenHackForced) {
     alert('Bei 10er-Hacken darf niemand Karten tauschen – es wird mit der ausgeteilten Hand gespielt.');
     return;
@@ -2524,6 +2571,10 @@ function executeExchange() {
   }
   const p = players.find(pl => pl.id === exchangePlayerId);
   if (!p) return;
+  if (online.enabled && !canControlPlayer(exchangePlayerId)) {
+    alert('Im Online-Modus kann nur der aktuelle Spieler seinen Tausch ausführen.');
+    return;
+  }
 
   let indices = Array.from(selectedForExchange).sort((a,b)=>a-b);
   const isBlindHacker = (exchangePlayerId === blindHackerId && p.hand.length === 5);
@@ -2751,6 +2802,10 @@ function startTrickPhase() {
 }
 
 function playCard(playerId, cardIndex) {
+  if (online.enabled && !canControlPlayer(playerId)) {
+    alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
+    return;
+  }
   if (phase !== 'tricks') {
     alert('Die Stichrunde ist noch nicht gestartet. Bitte zuerst „Stichrunde starten“.');
     return;
@@ -2949,6 +3004,13 @@ function determineTrickWinner() {
     }
 
     function onToggleAutopilot() {
+      if (online.enabled && document.getElementById('autopilotToggle')?.checked) {
+        document.getElementById('autopilotToggle').checked = false;
+        window.autopilot = false;
+        addLog('Autopilot ist im Online-Modus deaktiviert.');
+        alert('Autopilot ist im Online-Modus deaktiviert.');
+        return;
+      }
       window.autopilot = !!document.getElementById('autopilotToggle')?.checked;
       addLog(window.autopilot ? 'Autopilot aktiviert.' : 'Autopilot deaktiviert.');
       kickAutopilot();
@@ -3444,6 +3506,10 @@ function autopilotChooseBestCard(playerId) {
 
     // Button "Spieler fragen" -> nutzt Autopilot/Modal statt confirm
     function promptHackMitPassSequence() {
+  if (online.enabled) {
+    alert('Im Online-Modus trifft jeder Spieler Entscheidungen auf seinem eigenen Gerät.');
+    return;
+  }
   if (!players.length) return;
 
   if (tenHackForced) {
@@ -3483,11 +3549,15 @@ function autopilotChooseBestCard(playerId) {
     if (!exchangeQueue.length) return;
 
     const currentId = exchangeQueue[exchangeQueueIndex];
-    if (p.id === currentId) b.disabled = false;
+    if (p.id === currentId && canControlPlayer(p.id)) b.disabled = false;
   });
 }
 
 function markExchangeDone(playerId) {
+  if (online.enabled && !canControlPlayer(playerId)) {
+    alert('Im Online-Modus kann nur der betroffene Spieler auf „Fertig“ klicken.');
+    return;
+  }
   if (tenHackForced) {
     alert('Bei 10er-Hacken darf niemand tauschen – direkt Stichrunde starten.');
     return;
@@ -3585,6 +3655,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
           id: p.id,
           name: p.name,
           balance: p.balance,
+          socketId: p.socketId || null,
           hand: Array.isArray(p.hand) ? p.hand.map(c => ({ suit: c.suit, rank: c.rank })) : []
         })),
         trumpSuit,
@@ -3637,6 +3708,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
           id: p.id || ('P' + i),
           name: p.name || ('Spieler ' + (i + 1)),
           balance: Number(p.balance) || 0,
+          socketId: p.socketId || null,
           hand: Array.isArray(p.hand) ? p.hand.map(c => ({ suit: c.suit, rank: c.rank })) : []
         }));
 
@@ -3757,7 +3829,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
       if (!players.length) return;
       const state = {
         baseStake,
-        players: players.map(p => ({ id: p.id, name: p.name, balance: p.balance })),
+        players: players.map(p => ({ id: p.id, name: p.name, balance: p.balance, socketId: p.socketId || null })),
         pot,
         roundNumber,
         historyRows
@@ -3772,6 +3844,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
         id: p.id || ('P' + i),
         name: p.name || ('Spieler ' + (i + 1)),
         balance: typeof p.balance === 'number' ? p.balance : 0,
+        socketId: p.socketId || null,
         hand: []
       }));
       pot = state.pot || 0;

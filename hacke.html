@@ -1611,6 +1611,13 @@
           btnStart.disabled = true;
           btnPrompt.disabled = true;
         }
+
+        // Im Online-Modus werden Blind/Hack-Fragen durch den Host-Koordinator automatisch geführt.
+        if (online.enabled) {
+          btnReveal.disabled = true;
+          btnNextTrump.disabled = true;
+          btnPrompt.disabled = true;
+        }
       }
     }
 
@@ -2768,10 +2775,7 @@ updateExchangeButtons();
     }
 
     function revealAllHands() {
-      if (online.enabled && !isOnlineHost()) {
-        alert('Im Online-Modus kann nur der Host diese Aktion ausführen.');
-        return;
-      }
+      if (online.enabled && !isOnlineHost()) return;
       if (phase === 'dealt_blind') {
         cardsFaceDown = false;
         phase = 'open_cards';

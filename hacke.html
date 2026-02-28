@@ -1306,6 +1306,17 @@
       return true;
     }
 
+    function tryRejoinRoomAfterReconnect() {
+      if (!online.socket || !online.connected || !online.roomCode) return;
+      const name = (online.playerName || document.getElementById('onlinePlayerName')?.value || '').trim() || 'Spieler';
+      online.playerName = name;
+      online.socket.emit('room:join', { roomCode: online.roomCode, playerName: name }, (res) => {
+        if (!res || !res.ok) return;
+        applyRoomMeta(res.room);
+        if (res.state) applyRuntimeState(res.state, { fromRemote: true });
+      });
+    }
+
     function connectOnlineSocket(serverUrl) {
       if (!ensureOnlineSocket()) return null;
 
@@ -1329,6 +1340,7 @@
         online.connected = true;
         refreshLocalPlayerId();
         setOnlineStatus(`Verbunden (${online.socket.id})`);
+        tryRejoinRoomAfterReconnect();
       });
 
       online.socket.on('disconnect', () => {
@@ -1349,6 +1361,7 @@
             online.connected = true;
             refreshLocalPlayerId();
             setOnlineStatus(`Verbunden via HTTP-Polling (${online.socket.id})`);
+            tryRejoinRoomAfterReconnect();
           });
           online.socket.on('disconnect', () => {
             online.connected = false;

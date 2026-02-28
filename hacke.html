@@ -674,7 +674,7 @@
               <button id="btn-start-tricks" class="full" style="margin-top:8px;" onclick="startTrickPhase()">Stichrunde starten</button>
               <button id="btn-prompt" class="full" style="margin-top:8px;" onclick="promptHackMitPassSequence()">Spieler fragen (Hack/Mit/Pass)</button>
 
-              <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+              <div id="autopilotRow" style="display:flex; gap:10px; align-items:center; margin-top:10px;">
                 <label style="display:flex; gap:8px; align-items:center; font-size:0.8rem; color:#cbd5e1;">
                   <input id="autopilotToggle" type="checkbox" onchange="onToggleAutopilot()" />
                   Autopilot
@@ -779,6 +779,7 @@
       roomCode: '',
       roomPlayers: [],
       hostSocketId: null,
+      localPlayerId: null,
       playerName: '',
       serverUrl: '',
       isApplyingRemote: false,
@@ -851,8 +852,10 @@
       const onlineEnabled = !!document.getElementById('onlineEnabled')?.checked;
       const namesCard = document.getElementById('setupNamesCard');
       const numPlayersSelect = document.getElementById('numPlayers');
+      const autoRow = document.getElementById('autopilotRow');
       if (namesCard) namesCard.style.display = onlineEnabled ? 'none' : 'block';
       if (numPlayersSelect) numPlayersSelect.disabled = onlineEnabled;
+      if (autoRow) autoRow.style.display = onlineEnabled ? 'none' : 'flex';
     }
 
     function applyRoomMeta(meta) {
@@ -865,10 +868,36 @@
       setOnlineRoomInfo(`Raum ${meta.code} | Spieler: ${list || '–'}`);
       const np = document.getElementById('numPlayers');
       if (np && online.roomPlayers.length > 0) np.value = String(online.roomPlayers.length);
+      refreshLocalPlayerId();
     }
 
     function getLocalSocketId() {
       return online.socket?.id || null;
+    }
+
+    function refreshLocalPlayerId() {
+      if (!online.enabled) {
+        online.localPlayerId = null;
+        return null;
+      }
+      const sid = getLocalSocketId();
+      if (sid) {
+        const bySocket = players.find(p => p.socketId && p.socketId === sid);
+        if (bySocket) {
+          online.localPlayerId = bySocket.id;
+          return online.localPlayerId;
+        }
+      }
+      const localName = (online.playerName || '').trim().toLowerCase();
+      if (localName) {
+        const matches = players.filter(p => (p.name || '').trim().toLowerCase() === localName);
+        if (matches.length === 1) {
+          online.localPlayerId = matches[0].id;
+          return online.localPlayerId;
+        }
+      }
+      online.localPlayerId = null;
+      return null;
     }
 
     function isOnlineHost() {
@@ -879,14 +908,8 @@
 
     function getLocalGamePlayerId() {
       if (!online.enabled) return null;
-      const sid = getLocalSocketId();
-      if (!sid) return null;
-      const bySocket = players.find(p => p.socketId && p.socketId === sid);
-      if (bySocket) return bySocket.id;
-      const localName = (online.playerName || '').trim().toLowerCase();
-      if (!localName) return null;
-      const byName = players.find(p => (p.name || '').trim().toLowerCase() === localName);
-      return byName ? byName.id : null;
+      if (online.localPlayerId && players.some(p => p.id === online.localPlayerId)) return online.localPlayerId;
+      return refreshLocalPlayerId();
     }
 
     function canControlPlayer(playerId) {
@@ -1282,6 +1305,7 @@
 
       online.socket.on('connect', () => {
         online.connected = true;
+        refreshLocalPlayerId();
         setOnlineStatus(`Verbunden (${online.socket.id})`);
       });
 
@@ -1301,6 +1325,7 @@
 
           online.socket.on('connect', () => {
             online.connected = true;
+            refreshLocalPlayerId();
             setOnlineStatus(`Verbunden via HTTP-Polling (${online.socket.id})`);
           });
           online.socket.on('disconnect', () => {
@@ -1661,6 +1686,7 @@
         online.roomCode = '';
         online.roomPlayers = [];
         online.hostSocketId = null;
+        online.localPlayerId = null;
         online.lastSnapshotHash = '';
         onlinePrompt = null;
         onlineMitStageDone = false;
@@ -1733,6 +1759,7 @@
           players.push({ id: 'P' + i, name, balance: 0, hand: [], socketId: null });
         }
       }
+      refreshLocalPlayerId();
 
       pot = 0;
       players.forEach(p => {
@@ -3385,13 +3412,6 @@ function determineTrickWinner() {
     }
 
     function onToggleAutopilot() {
-      if (online.enabled && document.getElementById('autopilotToggle')?.checked) {
-        document.getElementById('autopilotToggle').checked = false;
-        window.autopilot = false;
-        addLog('Autopilot ist im Online-Modus deaktiviert.');
-        alert('Autopilot ist im Online-Modus deaktiviert.');
-        return;
-      }
       window.autopilot = !!document.getElementById('autopilotToggle')?.checked;
       addLog(window.autopilot ? 'Autopilot aktiviert.' : 'Autopilot deaktiviert.');
       kickAutopilot();
@@ -4095,6 +4115,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
           socketId: p.socketId || null,
           hand: Array.isArray(p.hand) ? p.hand.map(c => ({ suit: c.suit, rank: c.rank })) : []
         }));
+        refreshLocalPlayerId();
 
         trumpSuit = state.trumpSuit || null;
         trumpRank = state.trumpRank || null;
@@ -4212,7 +4233,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
     setInterval(syncRuntimeState, 350);
     setInterval(() => {
       processOnlinePromptUI();
-      runOnlineCoordinator();
+      runOnlineCoordinator().catch(() => {});
       checkOnlineTrickTimeout();
     }, 250);
 

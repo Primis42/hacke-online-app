@@ -778,12 +778,19 @@
       connected: false,
       roomCode: '',
       roomPlayers: [],
+      hostSocketId: null,
       playerName: '',
       serverUrl: '',
       isApplyingRemote: false,
       lastSnapshotHash: '',
       lastSentAt: 0
     };
+    let onlinePrompt = null;
+    let onlinePromptShownId = null;
+    let onlineCoordinatorLock = false;
+    let onlineMitStageDone = false;
+    let trickTurnStartedAt = 0;
+    let trickTurnPlayerId = null;
 
     function getQueryParam(name) {
       try {
@@ -850,6 +857,7 @@
 
     function applyRoomMeta(meta) {
       if (!meta) return;
+      online.hostSocketId = meta.hostSocketId || null;
       online.roomPlayers = Array.isArray(meta.players)
         ? meta.players.map(p => ({ socketId: p.socketId, name: (p.name || '').trim() || 'Spieler' }))
         : [];
@@ -861,6 +869,12 @@
 
     function getLocalSocketId() {
       return online.socket?.id || null;
+    }
+
+    function isOnlineHost() {
+      if (!online.enabled) return false;
+      const sid = getLocalSocketId();
+      return !!sid && !!online.hostSocketId && sid === online.hostSocketId;
     }
 
     function getLocalGamePlayerId() {
@@ -879,6 +893,302 @@
       if (!online.enabled) return true;
       const localId = getLocalGamePlayerId();
       return !!localId && localId === playerId;
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function setOnlinePrompt(promptObj) {
+      onlinePrompt = promptObj;
+      syncRuntimeState();
+    }
+
+    function clearOnlinePrompt() {
+      onlinePrompt = null;
+      syncRuntimeState();
+    }
+
+    function answerOnlinePrompt(value) {
+      if (!onlinePrompt) return;
+      const localId = getLocalGamePlayerId();
+      if (!localId || localId !== onlinePrompt.playerId) return;
+      onlinePrompt = {
+        ...onlinePrompt,
+        answeredValue: value,
+        answeredBySocketId: getLocalSocketId(),
+        answeredAt: Date.now()
+      };
+      syncRuntimeState();
+    }
+
+    function processOnlinePromptUI() {
+      if (!online.enabled) return;
+      if (!onlinePrompt) {
+        if (onlinePromptShownId) {
+          onlinePromptShownId = null;
+          closeModal();
+        }
+        return;
+      }
+
+      if (onlinePromptShownId === onlinePrompt.id) return;
+      if (onlinePrompt.answeredValue) return;
+
+      const localId = getLocalGamePlayerId();
+      if (!localId || localId !== onlinePrompt.playerId) return;
+
+      onlinePromptShownId = onlinePrompt.id;
+      openModal({
+        title: onlinePrompt.title || 'Entscheidung',
+        subtitle: onlinePrompt.subtitle || '',
+        showPlayerHands: !!onlinePrompt.showPlayerHands,
+        currentPlayerId: onlinePrompt.playerId,
+        buttons: (onlinePrompt.buttons || []).map(b => ({
+          label: b.label,
+          onClick: () => answerOnlinePrompt(b.value)
+        }))
+      });
+    }
+
+    async function askOnlinePlayerDecision({
+      type = 'generic',
+      playerId,
+      title,
+      subtitle,
+      buttons,
+      defaultValue = 'no',
+      timeoutMs = 30000,
+      showPlayerHands = true
+    }) {
+      if (!online.enabled || !isOnlineHost()) return defaultValue;
+
+      const id = `pr-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      setOnlinePrompt({
+        id,
+        type,
+        playerId,
+        title,
+        subtitle,
+        buttons,
+        showPlayerHands,
+        defaultValue,
+        deadlineTs: Date.now() + timeoutMs,
+        answeredValue: null,
+        answeredBySocketId: null,
+        answeredAt: null
+      });
+
+      while (onlinePrompt && onlinePrompt.id === id) {
+        if (onlinePrompt.answeredValue) {
+          const out = onlinePrompt.answeredValue;
+          clearOnlinePrompt();
+          return out;
+        }
+        if (Date.now() > onlinePrompt.deadlineTs) {
+          const out = onlinePrompt.defaultValue || defaultValue;
+          clearOnlinePrompt();
+          return out;
+        }
+        await sleep(180);
+      }
+      return defaultValue;
+    }
+
+    function dealerOrderIds() {
+      const order = [];
+      for (let i = 0; i < players.length; i++) {
+        const idx = (dealerIndex + 1 + i) % players.length;
+        if (players[idx]) order.push(players[idx].id);
+      }
+      return order;
+    }
+
+    function chooseAutoValidCardIndex(playerId) {
+      const p = players.find(pl => pl.id === playerId);
+      if (!p || !p.hand || !p.hand.length) return -1;
+
+      if (currentTrick.length === 0) return 0;
+
+      const leadSuit = currentTrick[0].card.suit;
+      const hasLead = p.hand.some(c => c.suit === leadSuit);
+      if (hasLead) {
+        for (let i = 0; i < p.hand.length; i++) {
+          if (p.hand[i].suit === leadSuit) return i;
+        }
+      }
+
+      const hasTrump = trumpSuit ? p.hand.some(c => c.suit === trumpSuit) : false;
+      if (!hasLead && trumpSuit && hasTrump) {
+        for (let i = 0; i < p.hand.length; i++) {
+          if (p.hand[i].suit === trumpSuit) return i;
+        }
+      }
+
+      return 0;
+    }
+
+    function checkOnlineTrickTimeout() {
+      if (!online.enabled || !isOnlineHost()) return;
+      if (phase !== 'tricks' || !activePlayerIds.length) return;
+
+      const currentId = activePlayerIds[currentActiveIndex];
+      if (!currentId) return;
+
+      if (trickTurnPlayerId !== currentId) {
+        trickTurnPlayerId = currentId;
+        trickTurnStartedAt = Date.now();
+        syncRuntimeState();
+        return;
+      }
+
+      if (!trickTurnStartedAt) {
+        trickTurnStartedAt = Date.now();
+        syncRuntimeState();
+        return;
+      }
+
+      if (Date.now() - trickTurnStartedAt < 30000) return;
+
+      const idx = chooseAutoValidCardIndex(currentId);
+      if (idx >= 0) {
+        const pname = players.find(p => p.id === currentId)?.name || 'Spieler';
+        addLog(`${pname} hat nicht rechtzeitig gespielt (30s) – Karte wird automatisch gespielt.`);
+        playCard(currentId, idx, true);
+      }
+      trickTurnStartedAt = Date.now();
+      trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
+      syncRuntimeState();
+    }
+
+    async function runOnlineCoordinator() {
+      if (!online.enabled || !isOnlineHost() || onlineCoordinatorLock) return;
+      if (onlinePrompt) return;
+      onlineCoordinatorLock = true;
+      try {
+        // 1) Blind-Hack reihum fragen
+        if (phase === 'dealt_blind' && !blindHackerId) {
+          let previousInfo = '';
+          const order = dealerOrderIds();
+          for (let i = 0; i < order.length; i++) {
+            if (phase !== 'dealt_blind' || blindHackerId) break;
+            const pid = order[i];
+            const p = players.find(x => x.id === pid);
+            if (!p) continue;
+            const subtitle = previousInfo
+              ? `${previousInfo} Willst du den Trumpf blind aufnehmen?`
+              : 'Willst du den Trumpf blind aufnehmen?';
+            const ans = await askOnlinePlayerDecision({
+              type: 'blind',
+              playerId: pid,
+              title: `${p.name} – Blind Hack?`,
+              subtitle,
+              buttons: [
+                { label: 'Blind Hack', value: 'blind' },
+                { label: 'Nein', value: 'no' }
+              ],
+              defaultValue: 'no',
+              timeoutMs: 30000,
+              showPlayerHands: false
+            });
+            if (ans === 'blind') {
+              blindHack(pid, true);
+              previousInfo = `${p.name} nimmt den Trumpf blind auf.`;
+              break;
+            } else {
+              previousInfo = `${p.name} nimmt den Trumpf nicht blind.`;
+              addLog(previousInfo);
+            }
+          }
+          if (phase === 'dealt_blind' && !blindHackerId) revealAllHands();
+        }
+
+        // 2) Hack-Frage (inkl. Trumpfwechsel bis max. 3)
+        if (phase === 'open_cards' && !tenHackForced && !document.querySelector('input[name="hacker"]:checked')) {
+          onlineMitStageDone = false;
+          let historyText = '';
+          while (phase === 'open_cards' && !document.querySelector('input[name="hacker"]:checked')) {
+            const order = dealerOrderIds();
+            let hacked = false;
+            for (let i = 0; i < order.length; i++) {
+              if (phase !== 'open_cards') break;
+              if (document.querySelector('input[name="hacker"]:checked')) { hacked = true; break; }
+              const pid = order[i];
+              const p = players.find(x => x.id === pid);
+              if (!p) continue;
+              const subtitle = historyText
+                ? `${historyText} Willst du mit diesem Trumpf hacken?`
+                : 'Willst du mit diesem Trumpf hacken?';
+              const ans = await askOnlinePlayerDecision({
+                type: 'hack',
+                playerId: pid,
+                title: `${p.name} – Hacken?`,
+                subtitle,
+                buttons: [
+                  { label: 'Hack', value: 'hack' },
+                  { label: 'Nein', value: 'no' }
+                ],
+                defaultValue: 'no',
+                timeoutMs: 30000,
+                showPlayerHands: true
+              });
+              if (ans === 'hack') {
+                setPlayerDecision(pid, 'hack', true);
+                onlineMitStageDone = false;
+                historyText = `${p.name} hackt.`;
+                hacked = true;
+                break;
+              } else {
+                historyText = `${p.name} hackt nicht.`;
+              }
+            }
+            if (hacked || document.querySelector('input[name="hacker"]:checked')) break;
+            if (phase !== 'open_cards') break;
+            nextTrump();
+            if (phase === 'idle') break;
+          }
+        }
+
+        // 3) Mitgehen reihum fragen (wenn Hacker gesetzt)
+        if (phase === 'open_cards' && !tenHackForced && !onlineMitStageDone) {
+          const hackerEl = document.querySelector('input[name="hacker"]:checked');
+          if (hackerEl) {
+            const hackerId = hackerEl.value;
+            const hackerName = players.find(p => p.id === hackerId)?.name || 'Der Hacker';
+            let context = `${hackerName} hackt.`;
+            const order = dealerOrderIds();
+            for (let i = 0; i < order.length; i++) {
+              const pid = order[i];
+              if (pid === hackerId) continue;
+              const p = players.find(x => x.id === pid);
+              if (!p) continue;
+              const ans = await askOnlinePlayerDecision({
+                type: 'mit',
+                playerId: pid,
+                title: `${p.name} – Mitgehen?`,
+                subtitle: `${context} Gehst du mit?`,
+                buttons: [
+                  { label: 'Mit', value: 'mit' },
+                  { label: 'Pass', value: 'pass' }
+                ],
+                defaultValue: 'pass',
+                timeoutMs: 30000,
+                showPlayerHands: true
+              });
+              if (ans === 'mit') {
+                setMitExplicit(pid, true);
+                context = `${p.name} geht mit.`;
+              } else {
+                setPassExplicit(pid);
+                context = `${p.name} passt.`;
+              }
+            }
+            onlineMitStageDone = true;
+          }
+        }
+      } finally {
+        onlineCoordinatorLock = false;
+      }
     }
 
     function normalizeServerUrl(raw) {
@@ -1350,7 +1660,10 @@
         online.connected = false;
         online.roomCode = '';
         online.roomPlayers = [];
+        online.hostSocketId = null;
         online.lastSnapshotHash = '';
+        onlinePrompt = null;
+        onlineMitStageDone = false;
         setOnlineStatus('Offline');
         setOnlineRoomInfo('Noch kein Raum verbunden.');
       }
@@ -1391,6 +1704,11 @@
         if (!online.connected || !online.roomCode) {
           errorBox.style.display = 'block';
           errorBox.textContent = 'Online-Modus ist aktiv. Bitte zuerst einen Raum erstellen oder beitreten.';
+          return;
+        }
+        if (!isOnlineHost()) {
+          errorBox.style.display = 'block';
+          errorBox.textContent = 'Im Online-Modus kann nur der Host das Spiel starten.';
           return;
         }
         if (!online.roomPlayers || online.roomPlayers.length < 2) {
@@ -1437,12 +1755,20 @@
       activePlayerIds = [];
       currentActiveIndex = 0;
       tricksPlayed = 0;
+      onlinePrompt = null;
+      onlineMitStageDone = false;
+      trickTurnStartedAt = 0;
+      trickTurnPlayerId = null;
       modeExchange = false;
       exchangePlayerId = null;
       selectedForExchange = new Set();
       exchangeQueue = [];
       exchangeQueueIndex = 0;
       fixedHackerId = null;
+      onlinePrompt = null;
+      onlineMitStageDone = false;
+      trickTurnStartedAt = 0;
+      trickTurnPlayerId = null;
       historyRows = [];
 
       const log = document.getElementById('moderatorLog');
@@ -1623,6 +1949,10 @@
     /* (Unverändert – ab hier bis einschließlich determineTrickWinner bleibt funktional gleich) */
 
     function berechneRunde() {
+      if (online.enabled && !isOnlineHost()) {
+        alert('Im Online-Modus kann nur der Host die Runde auswerten.');
+        return;
+      }
       const infoBox = document.getElementById('roundInfo');
       infoBox.textContent = '';
       document.getElementById('endSummary').style.display = 'none';
@@ -1967,6 +2297,7 @@
     }
 
     function updateTableHands() {
+      const localPlayerId = getLocalGamePlayerId();
       players.forEach(p => {
         const row = document.getElementById('tp-cards-' + p.id);
         if (!row) return;
@@ -1974,8 +2305,9 @@
         const hand = p.hand || [];
         for (let i = 0; i < hand.length; i++) {
           const cardDiv = document.createElement('div');
+          const hideForOnlineOther = online.enabled && !!localPlayerId && p.id !== localPlayerId;
 
-          if (cardsFaceDown) {
+          if (cardsFaceDown || hideForOnlineOther) {
             cardDiv.className = 'card-small back';
           } else {
             const c = hand[i];
@@ -2041,10 +2373,23 @@
         container.appendChild(div);
       }
     }
-            function setPlayerDecision(playerId, decision) {
-      if (online.enabled && !canControlPlayer(playerId)) {
+            function setPlayerDecision(playerId, decision, forceSystem = false) {
+      if (online.enabled && !forceSystem && !canControlPlayer(playerId)) {
         alert('Im Online-Modus kann nur der eigene Spieler Entscheidungen treffen.');
         return;
+      }
+      if (online.enabled && !forceSystem) {
+        const expectedType =
+          decision === 'hack' ? 'hack'
+          : (decision === 'mit' || decision === 'pass') ? 'mit'
+          : null;
+        const allowed = !!onlinePrompt &&
+          onlinePrompt.playerId === playerId &&
+          (!expectedType || onlinePrompt.type === expectedType);
+        if (!allowed && !tenHackForced) {
+          alert('Bitte warte, bis du der Reihe nach gefragt wirst.');
+          return;
+        }
       }
       if (tenHackForced) {
         alert('Bei 10er-Hacken sind Hacker und Mitgeher vorgegeben und können nicht geändert werden.');
@@ -2221,6 +2566,10 @@ updateExchangeButtons();
     }
 
     function dealNewRound() {
+      if (online.enabled && !isOnlineHost()) {
+        alert('Im Online-Modus kann nur der Host Karten geben.');
+        return;
+      }
       if (!players.length) return;
 
       dealerIndex = (dealerIndex + 1) % players.length;
@@ -2252,6 +2601,9 @@ updateExchangeButtons();
       activePlayerIds = [];
       currentActiveIndex = 0;
       tricksPlayed = 0;
+      trickTurnStartedAt = 0;
+      trickTurnPlayerId = null;
+      onlineMitStageDone = false;
       blindHackerId = null;
       modeExchange = false;
       exchangePlayerId = null;
@@ -2302,7 +2654,18 @@ updateExchangeButtons();
 
     }
 
-    function blindHack(playerId) {
+    function blindHack(playerId, forceSystem = false) {
+      if (online.enabled && !forceSystem && !canControlPlayer(playerId)) {
+        alert('Im Online-Modus kann nur der eigene Spieler blind hacken.');
+        return;
+      }
+      if (online.enabled && !forceSystem) {
+        const allowed = !!onlinePrompt && onlinePrompt.type === 'blind' && onlinePrompt.playerId === playerId;
+        if (!allowed) {
+          alert('Bitte warte, bis du der Reihe nach gefragt wirst.');
+          return;
+        }
+      }
       if (tenHackForced) {
         alert('In einer 10er-Hacken-Runde ist Blind-Hack nicht erlaubt.');
         return;
@@ -2323,7 +2686,7 @@ updateExchangeButtons();
       const p = players.find(pl => pl.id === playerId);
       if (!p) return;
 
-      setPlayerDecision(playerId, 'hack');
+      setPlayerDecision(playerId, 'hack', forceSystem);
       blindHackerId = playerId;
 
       // Trumpfkarte aufnehmen → 5 Karten
@@ -2352,6 +2715,10 @@ updateExchangeButtons();
     }
 
     function revealAllHands() {
+      if (online.enabled && !isOnlineHost()) {
+        alert('Im Online-Modus kann nur der Host diese Aktion ausführen.');
+        return;
+      }
       if (phase === 'dealt_blind') {
         cardsFaceDown = false;
         phase = 'open_cards';
@@ -2370,6 +2737,10 @@ updateExchangeButtons();
     }
 
     function nextTrump() {
+      if (online.enabled && !isOnlineHost()) {
+        alert('Im Online-Modus kann nur der Host den Trumpf wechseln.');
+        return;
+      }
       if (phase !== 'open_cards') {
         alert('Nächsten Trumpf kannst du nur wählen, wenn alle Karten offen sind.');
         return;
@@ -2699,6 +3070,10 @@ function executeExchange() {
   }
 
 function startTrickPhase() {
+  if (online.enabled && !isOnlineHost()) {
+    alert('Im Online-Modus kann nur der Host die Stichrunde starten.');
+    return;
+  }
   if (!players.length) return;
   if (modeExchange) {
     alert('Bitte zuerst den aktuellen Tausch abschliessen (Tausch ausführen) oder ohne Tausch beenden.');
@@ -2784,6 +3159,8 @@ function startTrickPhase() {
   phase = 'tricks';
   currentActiveIndex = activePlayerIds.indexOf(hackerId);
   if (currentActiveIndex < 0) currentActiveIndex = 0;
+  trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
+  trickTurnStartedAt = Date.now();
 
   cardsFaceDown = false;
   updateTableHands();
@@ -2801,8 +3178,8 @@ function startTrickPhase() {
   addLog(`Stichrunde gestartet. ${starterName} spielt zuerst.`);
 }
 
-function playCard(playerId, cardIndex) {
-  if (online.enabled && !canControlPlayer(playerId)) {
+function playCard(playerId, cardIndex, forceSystem = false) {
+  if (online.enabled && !forceSystem && !canControlPlayer(playerId)) {
     alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
     return;
   }
@@ -2870,6 +3247,8 @@ function playCard(playerId, cardIndex) {
 
     const idx = activePlayerIds.indexOf(winnerId);
     currentActiveIndex = idx >= 0 ? idx : 0;
+    trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
+    trickTurnStartedAt = Date.now();
     updateCurrentTurnHighlight();
     updateCurrentTrickDisplay();
 
@@ -2894,6 +3273,8 @@ function playCard(playerId, cardIndex) {
     }
   } else {
     currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
+    trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
+    trickTurnStartedAt = Date.now();
     updateCurrentTurnHighlight();
   }
 }
@@ -3682,6 +4063,9 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
         activePlayerIds: Array.isArray(activePlayerIds) ? [...activePlayerIds] : [],
         currentActiveIndex,
         tricksPlayed,
+        onlinePrompt: onlinePrompt ? JSON.parse(JSON.stringify(onlinePrompt)) : null,
+        trickTurnStartedAt,
+        trickTurnPlayerId,
         historyRows: Array.isArray(historyRows) ? JSON.parse(JSON.stringify(historyRows)) : [],
         roleState,
         ui: {
@@ -3736,6 +4120,9 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
         activePlayerIds = Array.isArray(state.activePlayerIds) ? [...state.activePlayerIds] : [];
         currentActiveIndex = Number(state.currentActiveIndex) || 0;
         tricksPlayed = Number(state.tricksPlayed) || 0;
+        onlinePrompt = state.onlinePrompt ? JSON.parse(JSON.stringify(state.onlinePrompt)) : null;
+        trickTurnStartedAt = Number(state.trickTurnStartedAt) || 0;
+        trickTurnPlayerId = state.trickTurnPlayerId || null;
         historyRows = Array.isArray(state.historyRows) ? JSON.parse(JSON.stringify(state.historyRows)) : [];
 
         const setupVisible = !!state.ui?.setupVisible;
@@ -3823,6 +4210,11 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
     }
 
     setInterval(syncRuntimeState, 350);
+    setInterval(() => {
+      processOnlinePromptUI();
+      runOnlineCoordinator();
+      checkOnlineTrickTimeout();
+    }, 250);
 
     // --- Speicherung: nur Score / Pot / History ---
     function saveState() {
@@ -3872,6 +4264,8 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
       activePlayerIds = [];
       currentActiveIndex = 0;
       tricksPlayed = 0;
+      trickTurnStartedAt = 0;
+      trickTurnPlayerId = null;
 
       document.getElementById('baseStake').value = baseStake;
       document.getElementById('setup').style.display = 'none';

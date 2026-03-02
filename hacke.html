@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
@@ -1026,8 +1026,9 @@
       if (!online.enabled) return false;
       const sid = getLocalSocketId();
       if (!sid) return false;
-      if (!online.hostSocketId) return false;
-      return sid === online.hostSocketId;
+      if (online.hostSocketId) return sid === online.hostSocketId;
+      if (online.roomPlayers.length > 0) return sid === online.roomPlayers[0].socketId;
+      return false;
     }
 
     function getLocalGamePlayerId() {
@@ -1316,7 +1317,7 @@
             if (hacked || document.querySelector('input[name="hacker"]:checked')) break;
             if (phase !== 'open_cards') break;
             addLog('Niemand hackt mit diesem Trumpf. Nächster Trumpf wird aufgedeckt.');
-            nextTrump(true);
+            nextTrump();
             if (phase === 'idle') break;
           }
         }
@@ -1505,15 +1506,6 @@
       });
     }
 
-    function requestOnlineRoomState() {
-      if (!online.socket || !online.connected || !online.roomCode) return;
-      online.socket.emit('room:request_state', { roomCode: online.roomCode }, (res) => {
-        if (!res || !res.ok) return;
-        if (res.room) applyRoomMeta(res.room);
-        if (res.state) applyRuntimeState(res.state, { fromRemote: true });
-      });
-    }
-
     function connectOnlineSocket(serverUrl) {
       if (!ensureOnlineSocket()) return null;
 
@@ -1629,7 +1621,6 @@
         saveOnlinePrefs();
         setOnlineRoomInfo(`Raum ${res.roomCode} erstellt.`);
         setOnlineStatus(`Raum ${res.roomCode} aktiv.`);
-        requestOnlineRoomState();
       });
     }
 
@@ -1667,7 +1658,6 @@
         if (res.state) {
           applyRuntimeState(res.state, { fromRemote: true });
         }
-        requestOnlineRoomState();
       });
     }
 
@@ -3060,19 +3050,19 @@ updateExchangeButtons();
       updateExchangeButtons();
     }
 
-    function nextTrump(forceSystem = false) {
-      if (online.enabled && !isOnlineHost() && !forceSystem) {
+    function nextTrump() {
+      if (online.enabled && !isOnlineHost()) {
         alert('Im Online-Modus kann nur der Host den Trumpf wechseln.');
         return;
       }
       if (phase !== 'open_cards') {
-        if (!forceSystem) alert('Nächsten Trumpf kannst du nur wählen, wenn alle Karten offen sind.');
+        alert('Nächsten Trumpf kannst du nur wählen, wenn alle Karten offen sind.');
         return;
       }
 
       const hackerRadio = document.querySelector('input[name="hacker"]:checked');
       if (hackerRadio) {
-        if (!forceSystem) alert('Es ist bereits ein Hacker gewählt – der Trumpf kann jetzt nicht mehr gewechselt werden.');
+        alert('Es ist bereits ein Hacker gewählt – der Trumpf kann jetzt nicht mehr gewechselt werden.');
         return;
       }
 
@@ -4652,10 +4642,6 @@ openNextExchangeTurnIfAny();
       runOnlineCoordinator().catch(() => {});
       checkOnlineTrickTimeout();
     }, 250);
-    setInterval(() => {
-      if (!online.enabled || !online.connected || !online.roomCode) return;
-      requestOnlineRoomState();
-    }, 2200);
 
     // --- Speicherung: nur Score / Pot / History ---
     function saveState() {
@@ -4763,3 +4749,8 @@ openNextExchangeTurnIfAny();
   </script>
 </body>
 </html>
+
+
+
+
+

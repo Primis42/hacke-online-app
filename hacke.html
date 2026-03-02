@@ -1546,15 +1546,6 @@
       });
     }
 
-    function requestOnlinePlayCard(playerId, cardIndex) {
-      if (!online.enabled || !online.socket || !online.connected || !online.roomCode) return;
-      online.socket.emit('trick:play', {
-        roomCode: online.roomCode,
-        playerId,
-        cardIndex
-      });
-    }
-
     function connectOnlineSocket(serverUrl) {
       if (!ensureOnlineSocket()) return null;
 
@@ -1630,11 +1621,6 @@
             };
             syncRuntimeState(true);
           });
-          online.socket.on('trick:play', (payload) => {
-            if (!payload || !isOnlineHost()) return;
-            if (!players.length) return;
-            playCard(payload.playerId, Number(payload.cardIndex), true);
-          });
           return;
         }
         setOnlineStatus(`Verbindung fehlgeschlagen: ${msg}`, true);
@@ -1662,11 +1648,6 @@
           answeredAt: Date.now()
         };
         syncRuntimeState(true);
-      });
-      online.socket.on('trick:play', (payload) => {
-        if (!payload || !isOnlineHost()) return;
-        if (!players.length) return;
-        playCard(payload.playerId, Number(payload.cardIndex), true);
       });
 
       return online.socket;
@@ -3658,14 +3639,6 @@ function startTrickPhase() {
 
 function playCard(playerId, cardIndex, forceSystem = false) {
   if (trickResolveLock) return;
-  if (online.enabled && !isOnlineHost() && !forceSystem) {
-    if (!canControlPlayer(playerId)) {
-      alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
-      return;
-    }
-    requestOnlinePlayCard(playerId, cardIndex);
-    return;
-  }
   if (online.enabled && !forceSystem && !canControlPlayer(playerId)) {
     alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
     return;

@@ -1696,11 +1696,6 @@
             if (!onlinePrompt) return;
             if (payload.promptId !== onlinePrompt.id) return;
             if (payload.playerId !== onlinePrompt.playerId) return;
-            const expectedSocketId =
-              onlinePrompt.playerSocketId ||
-              players.find(p => p.id === onlinePrompt.playerId)?.socketId ||
-              null;
-            if (expectedSocketId && payload.from && payload.from !== expectedSocketId) return;
             onlinePrompt = {
               ...onlinePrompt,
               answeredValue: payload.value,
@@ -1714,7 +1709,6 @@
             if (phase !== 'tricks') return;
             const player = players.find(p => p.id === payload.playerId);
             if (!player) return;
-            if (player.socketId && payload.from && payload.from !== player.socketId) return;
             const idx = Number(payload.cardIndex);
             if (!Number.isInteger(idx) || idx < 0) return;
             playCard(payload.playerId, idx, true);
@@ -1746,11 +1740,6 @@
         if (!onlinePrompt) return;
         if (payload.promptId !== onlinePrompt.id) return;
         if (payload.playerId !== onlinePrompt.playerId) return;
-        const expectedSocketId =
-          onlinePrompt.playerSocketId ||
-          players.find(p => p.id === onlinePrompt.playerId)?.socketId ||
-          null;
-        if (expectedSocketId && payload.from && payload.from !== expectedSocketId) return;
         onlinePrompt = {
           ...onlinePrompt,
           answeredValue: payload.value,
@@ -1764,7 +1753,6 @@
         if (phase !== 'tricks') return;
         const player = players.find(p => p.id === payload.playerId);
         if (!player) return;
-        if (player.socketId && payload.from && payload.from !== player.socketId) return;
         const idx = Number(payload.cardIndex);
         if (!Number.isInteger(idx) || idx < 0) return;
         playCard(payload.playerId, idx, true);

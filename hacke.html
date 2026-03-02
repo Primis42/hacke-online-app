@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
@@ -881,9 +881,7 @@
       roomCode: '',
       roomPlayers: [],
       hostSocketId: null,
-      isRoomCreator: false,
       localPlayerId: null,
-      localPlayerNameKey: '',
       playerName: '',
       serverUrl: '',
       isApplyingRemote: false,
@@ -965,7 +963,7 @@
 
     function applyRoomMeta(meta) {
       if (!meta) return;
-      online.hostSocketId = meta.hostSocketId || online.hostSocketId || null;
+      online.hostSocketId = meta.hostSocketId || null;
       online.roomPlayers = Array.isArray(meta.players)
         ? meta.players.map(p => ({ socketId: p.socketId, name: (p.name || '').trim() || 'Spieler' }))
         : [];
@@ -977,49 +975,20 @@
       refreshLocalPlayerId();
     }
 
-    function normalizePlayerName(name) {
-      return (name || '').trim().toLowerCase();
-    }
-
     function reconcilePlayersWithRoomMeta() {
       if (!players.length || !online.roomPlayers.length) return;
-
-      // 1) Bereits bekannte Socket-Matches behalten (nicht überschreiben).
-      const knownSocketToPlayer = new Map();
+      const byName = new Map();
       players.forEach(p => {
-        if (p.socketId) knownSocketToPlayer.set(p.socketId, p);
-      });
-
-      // 2) Eindeutige Namenszuordnung vorbereiten.
-      const playersByName = new Map();
-      players.forEach(p => {
-        const key = normalizePlayerName(p.name);
+        const key = (p.name || '').trim().toLowerCase();
         if (!key) return;
-        if (!playersByName.has(key)) playersByName.set(key, []);
-        playersByName.get(key).push(p);
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key).push(p);
       });
-
-      const roomByName = new Map();
       online.roomPlayers.forEach(rp => {
-        const key = normalizePlayerName(rp.name);
-        if (!key) return;
-        if (!roomByName.has(key)) roomByName.set(key, []);
-        roomByName.get(key).push(rp);
-      });
-
-      // 3) Erst Socket-basiert, dann eindeutige Namen mappen.
-      online.roomPlayers.forEach(rp => {
-        if (!rp || !rp.socketId) return;
-
-        const bySocket = knownSocketToPlayer.get(rp.socketId);
-        if (bySocket) return;
-
-        const key = normalizePlayerName(rp.name);
-        const pCandidates = playersByName.get(key) || [];
-        const rCandidates = roomByName.get(key) || [];
-        if (pCandidates.length === 1 && rCandidates.length === 1) {
-          pCandidates[0].socketId = rp.socketId;
-          knownSocketToPlayer.set(rp.socketId, pCandidates[0]);
+        const key = (rp.name || '').trim().toLowerCase();
+        const arr = byName.get(key) || [];
+        if (arr.length === 1) {
+          arr[0].socketId = rp.socketId || null;
         }
       });
     }
@@ -1031,35 +1000,24 @@
     function refreshLocalPlayerId() {
       if (!online.enabled) {
         online.localPlayerId = null;
-        online.localPlayerNameKey = '';
         return null;
       }
-      if (online.localPlayerId && players.some(p => p.id === online.localPlayerId)) {
-        return online.localPlayerId;
-      }
-
-      const keyFromSelf =
-        online.localPlayerNameKey ||
-        normalizePlayerName(online.playerName || document.getElementById('onlinePlayerName')?.value || '');
-      if (keyFromSelf) {
-        const matches = players.filter(p => normalizePlayerName(p.name) === keyFromSelf);
-        if (matches.length === 1) {
-          online.localPlayerNameKey = keyFromSelf;
-          online.localPlayerId = matches[0].id;
-          return online.localPlayerId;
-        }
-      }
-
       const sid = getLocalSocketId();
       if (sid) {
         const bySocket = players.find(p => p.socketId && p.socketId === sid);
         if (bySocket) {
           online.localPlayerId = bySocket.id;
-          online.localPlayerNameKey = normalizePlayerName(bySocket.name);
           return online.localPlayerId;
         }
       }
-
+      const localName = (online.playerName || '').trim().toLowerCase();
+      if (localName) {
+        const matches = players.filter(p => (p.name || '').trim().toLowerCase() === localName);
+        if (matches.length === 1) {
+          online.localPlayerId = matches[0].id;
+          return online.localPlayerId;
+        }
+      }
       online.localPlayerId = null;
       return null;
     }
@@ -1068,7 +1026,7 @@
       if (!online.enabled) return false;
       const sid = getLocalSocketId();
       if (!sid) return false;
-      if (!online.hostSocketId) return !!online.isRoomCreator;
+      if (!online.hostSocketId) return false;
       return sid === online.hostSocketId;
     }
 
@@ -1088,27 +1046,6 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    function requestOnlineDecision(promptId, playerId, value) {
-      if (!online.enabled || !online.socket || !online.roomCode) return false;
-      online.socket.emit('action:decision', {
-        roomCode: online.roomCode,
-        promptId,
-        playerId,
-        value
-      });
-      return true;
-    }
-
-    function requestOnlinePlayCard(playerId, cardIndex) {
-      if (!online.enabled || !online.socket || !online.roomCode) return false;
-      online.socket.emit('action:play', {
-        roomCode: online.roomCode,
-        playerId,
-        cardIndex
-      });
-      return true;
-    }
-
     function setOnlinePrompt(promptObj) {
       onlinePrompt = promptObj;
       syncRuntimeState();
@@ -1121,21 +1058,11 @@
 
     function answerOnlinePrompt(value, meta = null) {
       if (!onlinePrompt) return;
-      if (!canControlPlayer(onlinePrompt.playerId)) return;
-      online.localPlayerId = onlinePrompt.playerId;
+      const localId = getLocalGamePlayerId();
+      if (!localId || localId !== onlinePrompt.playerId) return;
       let payload = value;
       if (meta && typeof meta === 'object') {
         payload = { action: value, ...meta };
-      }
-      if (online.enabled && !isOnlineHost()) {
-        onlinePrompt = {
-          ...onlinePrompt,
-          answeredValue: payload,
-          answeredBySocketId: getLocalSocketId(),
-          answeredAt: Date.now()
-        };
-        requestOnlineDecision(onlinePrompt.id, onlinePrompt.playerId, payload);
-        return;
       }
       onlinePrompt = {
         ...onlinePrompt,
@@ -1156,15 +1083,11 @@
         return;
       }
 
-      const overlay = document.getElementById('modalOverlay');
-      if (onlinePromptShownId === onlinePrompt.id && overlay && overlay.style.display === 'flex') return;
-      if (onlinePrompt.answeredValue) {
-        if (overlay && overlay.style.display === 'flex') closeModal();
-        return;
-      }
+      if (onlinePromptShownId === onlinePrompt.id) return;
+      if (onlinePrompt.answeredValue) return;
 
-      if (!canControlPlayer(onlinePrompt.playerId)) return;
-      online.localPlayerId = onlinePrompt.playerId;
+      const localId = getLocalGamePlayerId();
+      if (!localId || localId !== onlinePrompt.playerId) return;
 
       onlinePromptShownId = onlinePrompt.id;
       openModal({
@@ -1260,13 +1183,6 @@
     function checkOnlineTrickTimeout() {
       if (!online.enabled || !isOnlineHost()) return;
       if (phase !== 'tricks' || !activePlayerIds.length) return;
-
-      for (let i = 0; i < activePlayerIds.length; i++) {
-        const curId = activePlayerIds[currentActiveIndex];
-        const curP = players.find(pl => pl.id === curId);
-        if (curP && Array.isArray(curP.hand) && curP.hand.length > 0) break;
-        currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
-      }
 
       const currentId = activePlayerIds[currentActiveIndex];
       if (!currentId) return;
@@ -1660,32 +1576,6 @@
             if (payload.from && online.socket && payload.from === online.socket.id) return;
             applyRuntimeState(payload.state, { fromRemote: true });
           });
-          online.socket.on('action:decision', (payload) => {
-            if (!payload || !isOnlineHost()) return;
-            if (!onlinePrompt) return;
-            if (payload.promptId !== onlinePrompt.id) return;
-            if (payload.playerId !== onlinePrompt.playerId) return;
-            const player = players.find(p => p.id === payload.playerId);
-            const fromName = normalizePlayerName(payload.fromName || '');
-            if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
-            onlinePrompt = {
-              ...onlinePrompt,
-              answeredValue: payload.value,
-              answeredBySocketId: payload.from || null,
-              answeredAt: Date.now()
-            };
-            syncRuntimeState(true);
-          });
-          online.socket.on('action:play', (payload) => {
-            if (!payload || !isOnlineHost()) return;
-            if (phase !== 'tricks') return;
-            const player = players.find(p => p.id === payload.playerId);
-            const fromName = normalizePlayerName(payload.fromName || '');
-            if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
-            const idx = Number(payload.cardIndex);
-            if (!Number.isInteger(idx) || idx < 0) return;
-            playCard(payload.playerId, idx, true);
-          });
           return;
         }
         setOnlineStatus(`Verbindung fehlgeschlagen: ${msg}`, true);
@@ -1694,37 +1584,13 @@
       online.socket.on('room:meta', (meta) => {
         applyRoomMeta(meta);
       });
+
       online.socket.on('state:update', (payload) => {
         if (!payload || !payload.state) return;
         if (payload.from && online.socket && payload.from === online.socket.id) return;
         applyRuntimeState(payload.state, { fromRemote: true });
       });
-      online.socket.on('action:decision', (payload) => {
-        if (!payload || !isOnlineHost()) return;
-        if (!onlinePrompt) return;
-        if (payload.promptId !== onlinePrompt.id) return;
-        if (payload.playerId !== onlinePrompt.playerId) return;
-        const player = players.find(p => p.id === payload.playerId);
-        const fromName = normalizePlayerName(payload.fromName || '');
-        if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
-        onlinePrompt = {
-          ...onlinePrompt,
-          answeredValue: payload.value,
-          answeredBySocketId: payload.from || null,
-          answeredAt: Date.now()
-        };
-        syncRuntimeState(true);
-      });
-      online.socket.on('action:play', (payload) => {
-        if (!payload || !isOnlineHost()) return;
-        if (phase !== 'tricks') return;
-        const player = players.find(p => p.id === payload.playerId);
-        const fromName = normalizePlayerName(payload.fromName || '');
-        if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
-        const idx = Number(payload.cardIndex);
-        if (!Number.isInteger(idx) || idx < 0) return;
-        playCard(payload.playerId, idx, true);
-      });
+
       return online.socket;
     }
 
@@ -1747,7 +1613,6 @@
 
       const finalName = cfg.playerName || 'Host';
       online.playerName = finalName;
-      online.localPlayerNameKey = normalizePlayerName(finalName);
 
       socket.emit('room:create', { playerName: finalName }, (res) => {
         if (!res || !res.ok) {
@@ -1755,7 +1620,6 @@
           return;
         }
         online.enabled = true;
-        online.isRoomCreator = true;
         const toggle = document.getElementById('onlineEnabled');
         if (toggle) toggle.checked = true;
         online.roomCode = res.roomCode;
@@ -1784,7 +1648,6 @@
 
       const finalName = cfg.playerName || 'Spieler';
       online.playerName = finalName;
-      online.localPlayerNameKey = normalizePlayerName(finalName);
 
       socket.emit('room:join', { roomCode: cfg.roomCode, playerName: finalName }, (res) => {
         if (!res || !res.ok) {
@@ -1793,7 +1656,6 @@
         }
 
         online.enabled = true;
-        online.isRoomCreator = false;
         const toggle = document.getElementById('onlineEnabled');
         if (toggle) toggle.checked = true;
         online.roomCode = res.roomCode;
@@ -2085,9 +1947,7 @@
         online.roomCode = '';
         online.roomPlayers = [];
         online.hostSocketId = null;
-        online.isRoomCreator = false;
         online.localPlayerId = null;
-        online.localPlayerNameKey = '';
         online.lastSnapshotHash = '';
         onlinePrompt = null;
         onlineMitStageDone = false;
@@ -2152,22 +2012,6 @@
 
       players = [];
       if (online.enabled) {
-        const seen = new Set();
-        let hasDuplicateName = false;
-        for (const rp of (online.roomPlayers || [])) {
-          const key = normalizePlayerName(rp?.name || '');
-          if (!key) continue;
-          if (seen.has(key)) {
-            hasDuplicateName = true;
-            break;
-          }
-          seen.add(key);
-        }
-        if (hasDuplicateName) {
-          errorBox.style.display = 'block';
-          errorBox.textContent = 'Im Online-Modus müssen alle Spielernamen eindeutig sein (keine Duplikate).';
-          return;
-        }
         online.roomPlayers.forEach((rp, i) => {
           const name = (rp.name || '').trim() || `Spieler ${i + 1}`;
           players.push({ id: 'P' + i, name, balance: 0, hand: [], socketId: rp.socketId || null });
@@ -3586,6 +3430,29 @@ function applyExchangeSelectionForPlayer(playerId, selectedIndices) {
   updateTableHands();
   return true;
 }
+
+
+
+  if (exchangeQueue.length) {
+    exchangeQueueIndex++;
+    if (exchangeQueueIndex < exchangeQueue.length) {
+      const nextId = exchangeQueue[exchangeQueueIndex];
+      const nextName = players.find(pl => pl.id === nextId)?.name || 'nächster Spieler';
+      document.getElementById('roundInfo').textContent +=
+        `\nJetzt ist ${nextName} an der Reihe. Falls er tauschen möchte, „Tauschen“ bei ihm drücken.`;
+        updateExchangeButtons();
+
+        if (window.autopilot && exchangeQueue.length && exchangeQueueIndex >= exchangeQueue.length) {
+        addLog('Autopilot: Tausch abgeschlossen → Stichrunde startet.');
+        setTimeout(startTrickPhase, 80);
+        }
+
+    } else {
+      document.getElementById('roundInfo').textContent +=
+        '\nAlle beteiligten Spieler hatten die Möglichkeit zu tauschen.';
+    }
+  }
+
 function startTrickPhase() {
   if (!players.length) return;
   if (modeExchange) {
@@ -3656,13 +3523,8 @@ function startTrickPhase() {
   }
 
   activePlayerIds = [];
-  if (forcedSpecialHackMode) {
-    // Pflicht-Hack-Runden: alle Spieler sind zwingend aktiv.
-    activePlayerIds = players.map(p => p.id);
-  } else {
-    players.forEach(p => { if (p.id === hackerId || mitGeher[p.id]) activePlayerIds.push(p.id); });
-    if (!activePlayerIds.includes(hackerId)) activePlayerIds.unshift(hackerId);
-  }
+  players.forEach(p => { if (p.id === hackerId || mitGeher[p.id]) activePlayerIds.push(p.id); });
+  if (!activePlayerIds.includes(hackerId)) activePlayerIds.unshift(hackerId);
 
   if (!activePlayerIds.length) {
     alert('Keine aktiven Spieler gefunden.');
@@ -3698,14 +3560,6 @@ function startTrickPhase() {
 
 function playCard(playerId, cardIndex, forceSystem = false) {
   if (trickResolveLock) return;
-  if (online.enabled && !forceSystem && !isOnlineHost()) {
-    if (!canControlPlayer(playerId)) {
-      alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
-      return;
-    }
-    requestOnlinePlayCard(playerId, cardIndex);
-    return;
-  }
   if (online.enabled && !forceSystem && !canControlPlayer(playerId)) {
     alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
     return;
@@ -3719,14 +3573,6 @@ function playCard(playerId, cardIndex, forceSystem = false) {
   if (!activePlayerIds.includes(playerId)) {
     alert('Dieser Spieler spielt diese Runde nicht mit (Pass).');
     return;
-  }
-
-  // Stabilisierung: Falls durch Sync ein Spieler ohne Karten "am Zug" ist, weiterdrehen.
-  for (let i = 0; i < activePlayerIds.length; i++) {
-    const curId = activePlayerIds[currentActiveIndex];
-    const curP = players.find(pl => pl.id === curId);
-    if (curP && Array.isArray(curP.hand) && curP.hand.length > 0) break;
-    currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
   }
 
   const currentId = activePlayerIds[currentActiveIndex];
@@ -3770,14 +3616,7 @@ function playCard(playerId, cardIndex, forceSystem = false) {
     window.autopilotPlayResolve = null;
   }
 
-  const expectedInThisTrick = activePlayerIds.filter(id => {
-    const pl = players.find(p => p.id === id);
-    if (!pl) return false;
-    if (currentTrick.some(e => e.playerId === id)) return true;
-    return Array.isArray(pl.hand) && pl.hand.length > 0;
-  }).length;
-
-  if (currentTrick.length === expectedInThisTrick) {
+  if (currentTrick.length === activePlayerIds.length) {
     const winnerId = determineTrickWinner();
     if (winnerId) {
       tricks[winnerId] = (tricks[winnerId] || 0) + 1;
@@ -3823,16 +3662,9 @@ function playCard(playerId, cardIndex, forceSystem = false) {
     }, 550);
   } else {
     currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
-    for (let i = 0; i < activePlayerIds.length; i++) {
-      const curId = activePlayerIds[currentActiveIndex];
-      const curP = players.find(pl => pl.id === curId);
-      if (curP && Array.isArray(curP.hand) && curP.hand.length > 0) break;
-      currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
-    }
     trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
     trickTurnStartedAt = Date.now();
     updateCurrentTurnHighlight();
-    syncRuntimeState();
   }
 }
 
@@ -4797,7 +4629,6 @@ openNextExchangeTurnIfAny();
 
     function syncRuntimeState(force = false) {
       if (!online.enabled || !online.connected || !online.socket || !online.roomCode) return;
-      if (online.enabled && !isOnlineHost()) return;
       if (online.isApplyingRemote) return;
       if (!players.length) return;
 
@@ -4815,10 +4646,7 @@ openNextExchangeTurnIfAny();
       });
     }
 
-    setInterval(() => {
-      if (online.enabled && !isOnlineHost()) return;
-      syncRuntimeState();
-    }, 350);
+    setInterval(syncRuntimeState, 350);
     setInterval(() => {
       processOnlinePromptUI();
       runOnlineCoordinator().catch(() => {});
@@ -4935,9 +4763,3 @@ openNextExchangeTurnIfAny();
   </script>
 </body>
 </html>
-
-
-
-
-
-

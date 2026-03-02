@@ -881,6 +881,7 @@
       roomCode: '',
       roomPlayers: [],
       hostSocketId: null,
+      isRoomCreator: false,
       localPlayerId: null,
       playerName: '',
       serverUrl: '',
@@ -963,7 +964,7 @@
 
     function applyRoomMeta(meta) {
       if (!meta) return;
-      online.hostSocketId = meta.hostSocketId || null;
+      online.hostSocketId = meta.hostSocketId || online.hostSocketId || null;
       online.roomPlayers = Array.isArray(meta.players)
         ? meta.players.map(p => ({ socketId: p.socketId, name: (p.name || '').trim() || 'Spieler' }))
         : [];
@@ -977,6 +978,11 @@
 
     function reconcilePlayersWithRoomMeta() {
       if (!players.length || !online.roomPlayers.length) return;
+      if (players.length === online.roomPlayers.length) {
+        for (let i = 0; i < players.length; i++) {
+          players[i].socketId = online.roomPlayers[i]?.socketId || players[i].socketId || null;
+        }
+      }
       const byName = new Map();
       players.forEach(p => {
         const key = (p.name || '').trim().toLowerCase();
@@ -1026,7 +1032,7 @@
       if (!online.enabled) return false;
       const sid = getLocalSocketId();
       if (!sid) return false;
-      if (!online.hostSocketId) return false;
+      if (!online.hostSocketId) return !!online.isRoomCreator;
       return sid === online.hostSocketId;
     }
 
@@ -1059,7 +1065,12 @@
     function answerOnlinePrompt(value, meta = null) {
       if (!onlinePrompt) return;
       const localId = getLocalGamePlayerId();
-      if (!localId || localId !== onlinePrompt.playerId) return;
+      if (!localId || localId !== onlinePrompt.playerId) {
+        const sid = getLocalSocketId();
+        const promptPlayer = players.find(p => p.id === onlinePrompt.playerId);
+        if (!sid || !promptPlayer || !promptPlayer.socketId || promptPlayer.socketId !== sid) return;
+        online.localPlayerId = onlinePrompt.playerId;
+      }
       let payload = value;
       if (meta && typeof meta === 'object') {
         payload = { action: value, ...meta };
@@ -1083,11 +1094,17 @@
         return;
       }
 
-      if (onlinePromptShownId === onlinePrompt.id) return;
+      const overlay = document.getElementById('modalOverlay');
+      if (onlinePromptShownId === onlinePrompt.id && overlay && overlay.style.display === 'flex') return;
       if (onlinePrompt.answeredValue) return;
 
       const localId = getLocalGamePlayerId();
-      if (!localId || localId !== onlinePrompt.playerId) return;
+      if (!localId || localId !== onlinePrompt.playerId) {
+        const sid = getLocalSocketId();
+        const promptPlayer = players.find(p => p.id === onlinePrompt.playerId);
+        if (!sid || !promptPlayer || !promptPlayer.socketId || promptPlayer.socketId !== sid) return;
+        online.localPlayerId = onlinePrompt.playerId;
+      }
 
       onlinePromptShownId = onlinePrompt.id;
       openModal({
@@ -1620,6 +1637,7 @@
           return;
         }
         online.enabled = true;
+        online.isRoomCreator = true;
         const toggle = document.getElementById('onlineEnabled');
         if (toggle) toggle.checked = true;
         online.roomCode = res.roomCode;
@@ -1656,6 +1674,7 @@
         }
 
         online.enabled = true;
+        online.isRoomCreator = false;
         const toggle = document.getElementById('onlineEnabled');
         if (toggle) toggle.checked = true;
         online.roomCode = res.roomCode;
@@ -1947,6 +1966,7 @@
         online.roomCode = '';
         online.roomPlayers = [];
         online.hostSocketId = null;
+        online.isRoomCreator = false;
         online.localPlayerId = null;
         online.lastSnapshotHash = '';
         onlinePrompt = null;

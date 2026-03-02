@@ -883,6 +883,7 @@
       hostSocketId: null,
       isRoomCreator: false,
       localPlayerId: null,
+      localPlayerNameKey: '',
       playerName: '',
       serverUrl: '',
       isApplyingRemote: false,
@@ -1030,37 +1031,35 @@
     function refreshLocalPlayerId() {
       if (!online.enabled) {
         online.localPlayerId = null;
+        online.localPlayerNameKey = '';
         return null;
       }
+      if (online.localPlayerId && players.some(p => p.id === online.localPlayerId)) {
+        return online.localPlayerId;
+      }
+
+      const keyFromSelf =
+        online.localPlayerNameKey ||
+        normalizePlayerName(online.playerName || document.getElementById('onlinePlayerName')?.value || '');
+      if (keyFromSelf) {
+        const matches = players.filter(p => normalizePlayerName(p.name) === keyFromSelf);
+        if (matches.length === 1) {
+          online.localPlayerNameKey = keyFromSelf;
+          online.localPlayerId = matches[0].id;
+          return online.localPlayerId;
+        }
+      }
+
       const sid = getLocalSocketId();
       if (sid) {
         const bySocket = players.find(p => p.socketId && p.socketId === sid);
         if (bySocket) {
           online.localPlayerId = bySocket.id;
+          online.localPlayerNameKey = normalizePlayerName(bySocket.name);
           return online.localPlayerId;
         }
+      }
 
-        // Fallback 1: room-meta kennt meinen Socket -> via eindeutigen Namen auf Spieler mappen.
-        const meInRoom = (online.roomPlayers || []).find(rp => rp.socketId === sid);
-        if (meInRoom) {
-          const key = normalizePlayerName(meInRoom.name);
-          const matches = players.filter(p => normalizePlayerName(p.name) === key);
-          if (matches.length === 1) {
-            matches[0].socketId = sid;
-            online.localPlayerId = matches[0].id;
-            return online.localPlayerId;
-          }
-        }
-      }
-      const localName = (online.playerName || '').trim().toLowerCase();
-      if (localName) {
-        const matches = players.filter(p => (p.name || '').trim().toLowerCase() === localName);
-        if (matches.length === 1) {
-          if (sid && !matches[0].socketId) matches[0].socketId = sid;
-          online.localPlayerId = matches[0].id;
-          return online.localPlayerId;
-        }
-      }
       online.localPlayerId = null;
       return null;
     }
@@ -1082,18 +1081,7 @@
     function canControlPlayer(playerId) {
       if (!online.enabled) return true;
       const localId = getLocalGamePlayerId();
-      if (localId && localId === playerId) return true;
-      const sid = getLocalSocketId();
-      if (!sid) return false;
-      const p = players.find(x => x.id === playerId);
-      if (p && p.socketId && p.socketId === sid) return true;
-      // Fallback: eindeutiger Name im Raum (hilft bei kurzzeitig fehlender socketId-Zuordnung)
-      const localName = normalizePlayerName(online.playerName);
-      if (localName && p && normalizePlayerName(p.name) === localName) {
-        const sameName = players.filter(x => normalizePlayerName(x.name) === localName);
-        if (sameName.length === 1) return true;
-      }
-      return false;
+      return !!localId && localId === playerId;
     }
 
     function sleep(ms) {
@@ -1676,6 +1664,7 @@
 
       const finalName = cfg.playerName || 'Host';
       online.playerName = finalName;
+      online.localPlayerNameKey = normalizePlayerName(finalName);
 
       socket.emit('room:create', { playerName: finalName }, (res) => {
         if (!res || !res.ok) {
@@ -1712,6 +1701,7 @@
 
       const finalName = cfg.playerName || 'Spieler';
       online.playerName = finalName;
+      online.localPlayerNameKey = normalizePlayerName(finalName);
 
       socket.emit('room:join', { roomCode: cfg.roomCode, playerName: finalName }, (res) => {
         if (!res || !res.ok) {
@@ -2014,6 +2004,7 @@
         online.hostSocketId = null;
         online.isRoomCreator = false;
         online.localPlayerId = null;
+        online.localPlayerNameKey = '';
         online.lastSnapshotHash = '';
         onlinePrompt = null;
         onlineMitStageDone = false;
@@ -2078,6 +2069,22 @@
 
       players = [];
       if (online.enabled) {
+        const seen = new Set();
+        let hasDuplicateName = false;
+        for (const rp of (online.roomPlayers || [])) {
+          const key = normalizePlayerName(rp?.name || '');
+          if (!key) continue;
+          if (seen.has(key)) {
+            hasDuplicateName = true;
+            break;
+          }
+          seen.add(key);
+        }
+        if (hasDuplicateName) {
+          errorBox.style.display = 'block';
+          errorBox.textContent = 'Im Online-Modus müssen alle Spielernamen eindeutig sein (keine Duplikate).';
+          return;
+        }
         online.roomPlayers.forEach((rp, i) => {
           const name = (rp.name || '').trim() || `Spieler ${i + 1}`;
           players.push({ id: 'P' + i, name, balance: 0, hand: [], socketId: rp.socketId || null });

@@ -978,11 +978,12 @@
 
     function reconcilePlayersWithRoomMeta() {
       if (!players.length || !online.roomPlayers.length) return;
-      if (players.length === online.roomPlayers.length) {
-        for (let i = 0; i < players.length; i++) {
-          players[i].socketId = online.roomPlayers[i]?.socketId || players[i].socketId || null;
-        }
-      }
+      const roomSocketSet = new Set(
+        online.roomPlayers.map(rp => rp.socketId).filter(Boolean)
+      );
+      players.forEach(p => {
+        if (p.socketId && !roomSocketSet.has(p.socketId)) p.socketId = null;
+      });
       const byName = new Map();
       players.forEach(p => {
         const key = (p.name || '').trim().toLowerCase();
@@ -1078,13 +1079,8 @@
 
     function answerOnlinePrompt(value, meta = null) {
       if (!onlinePrompt) return;
-      const localId = getLocalGamePlayerId();
-      if (!localId || localId !== onlinePrompt.playerId) {
-        const sid = getLocalSocketId();
-        const promptPlayer = players.find(p => p.id === onlinePrompt.playerId);
-        if (!sid || !promptPlayer || !promptPlayer.socketId || promptPlayer.socketId !== sid) return;
-        online.localPlayerId = onlinePrompt.playerId;
-      }
+      if (!canControlPlayer(onlinePrompt.playerId)) return;
+      online.localPlayerId = onlinePrompt.playerId;
       let payload = value;
       if (meta && typeof meta === 'object') {
         payload = { action: value, ...meta };
@@ -1133,13 +1129,8 @@
         return;
       }
 
-      const localId = getLocalGamePlayerId();
-      if (!localId || localId !== onlinePrompt.playerId) {
-        const sid = getLocalSocketId();
-        const promptPlayer = players.find(p => p.id === onlinePrompt.playerId);
-        if (!sid || !promptPlayer || !promptPlayer.socketId || promptPlayer.socketId !== sid) return;
-        online.localPlayerId = onlinePrompt.playerId;
-      }
+      if (!canControlPlayer(onlinePrompt.playerId)) return;
+      online.localPlayerId = onlinePrompt.playerId;
 
       onlinePromptShownId = onlinePrompt.id;
       openModal({

@@ -65,10 +65,35 @@
       text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
     }
 
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .subtitle {
       margin-bottom: 1.3rem;
       font-size: 0.9rem;
       color: var(--muted);
+    }
+
+    .help-btn {
+      margin-top: 0;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+      border-radius: 10px;
+      border: 1px solid rgba(214, 177, 102, 0.4);
+      background: linear-gradient(165deg, #1d3a2d, #13291f);
+      color: var(--gold-soft);
+      box-shadow: none;
+    }
+
+    .help-btn:hover:enabled {
+      background: linear-gradient(165deg, #24503b, #173424);
+      transform: translateY(-1px);
+      filter: none;
     }
 
     .section-title {
@@ -494,9 +519,12 @@
 </head>
 <body>
   <div class="app">
-    <h1>Hacke – Kontostand & Pot</h1>
+    <div class="header-row">
+      <h1>Hacke – Kontostand & Pot</h1>
+      <button type="button" class="help-btn" onclick="openRulesModal()">Spielanleitung</button>
+    </div>
     <div class="subtitle">
-      Flow: Karten geben → Trumpf / Blind-/10er-Hack → Karten offen → Hacker & Mitgeher → Tausch → Stichrunde → Auswertung.
+      Flow: Karten geben → Trumpf / Blind-/10er-/9er-/6er-Hack → Karten offen → Hacker & Mitgeher → Tausch → Stichrunde → Auswertung.
     </div>
 
     <!-- SETUP -->
@@ -517,6 +545,22 @@
             </select>
           </div>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Zusatzregeln (einfacher/doppelter Pot)</div>
+        <label class="row">
+          <input id="ruleTenHack" type="checkbox" checked />
+          <span>10er-Hack (Pflicht-Hack, alle mit, kein Tausch)</span>
+        </label>
+        <label class="row">
+          <input id="ruleNineHack" type="checkbox" checked />
+          <span>9er-Hack (Pflicht-Hack, alle mit, Tausch erlaubt)</span>
+        </label>
+        <label class="row">
+          <input id="ruleSixHack" type="checkbox" checked />
+          <span>6er-Hack (Pflicht-Hack, alle mit, Tausch erlaubt, kein Trumpf)</span>
+        </label>
       </div>
 
       <div class="card" id="setupNamesCard">
@@ -653,7 +697,7 @@
               <div style="margin-top:4px; display:flex; gap:6px; align-items:center;">
                 <div id="trump-card-slot" class="card-small empty"></div>
                 <span style="font-size:0.8rem; color:#9ca3af;" id="trump-text-hint">
-                  „Karten geben (neu)“: Trumpf wird automatisch gezogen (10er-Hacken bei einfachem/doppeltem Pot).
+                  „Karten geben (neu)“: Trumpf wird automatisch gezogen (10/9/6-Hacken gemäss Regel-Auswahl bei einfachem/doppeltem Pot).
                 </span>
               </div>
 
@@ -664,7 +708,7 @@
             <div class="table-center-info">
               <h3>Aktionen (Phasen)</h3>
               <div class="small-label" id="flowHint">
-                1️⃣ Karten geben → 2️⃣ Blind-/10er-Hack → 3️⃣ Hacker/Mit/Pass → 4️⃣ Tausch → 5️⃣ Stiche.
+                1️⃣ Karten geben → 2️⃣ Blind-/10er-/9er-/6er-Hack → 3️⃣ Hacker/Mit/Pass → 4️⃣ Tausch → 5️⃣ Stiche.
               </div>
 
               <button id="btn-deal" class="full" style="margin-top:8px;" onclick="dealNewRound()">Karten geben (neu)</button>
@@ -721,6 +765,57 @@
     </div>
   </div>
 
+  <!-- SPIELANLEITUNG -->
+  <div id="rulesOverlay" onclick="if(event.target===this) closeRulesModal()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.78); z-index:10000; align-items:center; justify-content:center; padding:12px; box-sizing:border-box;">
+    <div style="width:min(860px, 98vw); max-height:92vh; background:#06110c; border:1px solid rgba(214,177,102,0.35); border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.8); overflow-y:auto; padding:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
+        <div style="font-size:1.15rem; font-weight:700; color:#e4cc98;">Spielanleitung Hacke</div>
+        <button class="small-btn" type="button" onclick="closeRulesModal()">Schliessen</button>
+      </div>
+
+      <div style="font-size:0.9rem; color:#d8cfbc; line-height:1.5;">
+        <p><strong>Spielidee:</strong> Der Pot wird pro Runde ausgespielt. Ein Hacker versucht mit mindestens 2 Stichen zu gewinnen, Mitgeher brauchen mindestens 1 Stich. Wer das Ziel nicht erreicht, zahlt in den nächsten Pot.</p>
+
+        <p><strong>Rundenablauf (Phasen):</strong></p>
+        <p>1. Karten geben: Jeder aktive Spieler erhält 4 Karten, eine Trumpfkarte wird aufgedeckt.</p>
+        <p>2. Blind-Hack-Phase: Reihum wird gefragt, ob jemand den Trumpf blind aufnimmt.</p>
+        <p>3. Offene Karten: Wenn niemand blind hackt, werden Karten aufgedeckt und es folgt die Hack-Fragerunde.</p>
+        <p>4. Hack/Mit/Pass: Ein Spieler hackt, danach entscheiden die anderen reihum „Mit“ oder „Pass“.</p>
+        <p>5. Tauschphase: Hacker und Mitgeher dürfen in Reihenfolge tauschen.</p>
+        <p>6. Stichrunde: Es werden maximal 4 Stiche gespielt.</p>
+        <p>7. Auswertung: Pot wird verteilt, Strafzahlungen gehen in den neuen Pot.</p>
+
+        <p><strong>Wichtige Regeln:</strong></p>
+        <p>- Bedienpflicht: Wenn möglich, muss die angespielte Farbe gespielt werden.</p>
+        <p>- Trumpfpflicht: Wer die Farbe nicht hat, muss Trumpf spielen (falls vorhanden).</p>
+        <p>- Stichgewinn: Höchster Trumpf gewinnt den Stich, sonst höchste Karte der angespielten Farbe.</p>
+        <p>- Hacker-Ziel: mindestens 2 Stiche.</p>
+        <p>- Mitgeher-Ziel: mindestens 1 Stich.</p>
+
+        <p><strong>Blind-Hack und Pflicht-Hack-Sonderregeln:</strong></p>
+        <p>- Blind-Hack: Spieler nimmt Trumpf blind auf; danach läuft die Runde normal weiter.</p>
+        <p>- 10er-Hack (einfacher/doppelter Pot): Bestimmter Spieler muss hacken, alle anderen müssen mitgehen, kein Tausch erlaubt, Stichrunde startet direkt.</p>
+        <p>- 9er-Hack (einfacher/doppelter Pot): Bestimmter Spieler muss hacken, alle anderen müssen mitgehen, Tausch ist erlaubt, danach Stichrunde.</p>
+        <p>- 6er-Hack (einfacher/doppelter Pot): Bestimmter Spieler muss hacken, alle anderen müssen mitgehen, Tausch ist erlaubt, danach Stichrunde ohne Trumpf.</p>
+        <p>- Bei 6er-Hack gilt Rangfolge pro Farbe: 6 (höchste), dann 7, 8, 9, 10, B, D, K, A.</p>
+
+        <p><strong>Tauschregeln:</strong></p>
+        <p>- Normaler Tausch: markierte Karten werden 1:1 ersetzt.</p>
+        <p>- Blind-Hacker mit 5 Karten: spezieller Blind-Tausch (1-4 Karten wählen, am Ende 4 Karten).</p>
+        <p>- Nach dem letzten Tausch startet die Stichrunde automatisch.</p>
+
+        <p><strong>Online-Modus:</strong></p>
+        <p>- Jeder Spieler spielt auf seinem eigenen Gerät.</p>
+        <p>- Nur der aktuell gefragte Spieler sieht die aktive Frage und kann antworten.</p>
+        <p>- Nicht aktive Spieler sehen den Status, wer gerade dran ist.</p>
+        <p>- Bei Timeout (30s) wird automatisch ein Standardentscheid gesetzt.</p>
+
+        <p><strong>Moderation:</strong> Die Moderationsbox zeigt den Ablauf der Entscheidungen und Spielzüge für alle Spieler synchron an.</p>
+        <p><strong>Regel-Auswahl vor Spielstart:</strong> Im Setup kannst du 10er-, 9er- und 6er-Hack einzeln aktivieren/deaktivieren (0 bis 3 Regeln).</p>
+      </div>
+    </div>
+  </div>
+
   <script src="app-config.js"></script>
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script>
@@ -747,8 +842,13 @@
     let blindHackerId = null;
     let dealerIndex = -1;
     let tenHackForced = false;
+    let forcedSpecialHackMode = null; // null | 'ten' | 'nine' | 'six'
+    let roundNoTrump = false; // bei 6er-Hack: kein Trumpf in der Stichwertung
 
     let fixedHackerId = null;
+    let ruleTenHackEnabled = true;
+    let ruleNineHackEnabled = true;
+    let ruleSixHackEnabled = true;
 
     // Autopilot
     window.autopilot = false;
@@ -1071,8 +1171,8 @@
         }
       }
 
-      const hasTrump = trumpSuit ? p.hand.some(c => c.suit === trumpSuit) : false;
-      if (!hasLead && trumpSuit && hasTrump) {
+      const hasTrump = (!roundNoTrump && trumpSuit) ? p.hand.some(c => c.suit === trumpSuit) : false;
+      if (!hasLead && !roundNoTrump && trumpSuit && hasTrump) {
         for (let i = 0; i < p.hand.length; i++) {
           if (p.hand[i].suit === trumpSuit) return i;
         }
@@ -1603,6 +1703,12 @@
       return order[rank] ?? 0;
     }
 
+    function trickRankValue(rank) {
+      if (!roundNoTrump) return cardRankValue(rank);
+      const sixOrder = { '6':8, '7':7, '8':6, '9':5, '10':4, 'B':3, 'D':2, 'K':1, 'A':0 };
+      return sixOrder[rank] ?? 0;
+    }
+
     function suitOrder(suit) {
       return SUITS.indexOf(suit);
     }
@@ -1677,7 +1783,7 @@
         text = 'Phase: Warten / neue Runde';
         hint = 'Nächster Schritt: „Karten geben (neu)“, damit eine neue Runde startet.';
       } else if (phase === 'dealt_blind') {
-        text = 'Phase: Trumpf / Blind-/10er-Hack';
+        text = 'Phase: Trumpf / Blind-/10er-/9er-/6er-Hack';
         hint = 'Jetzt der Reihe nach fragen, ob jemand BLIND hacken will (Button „Spieler fragen“ oder Autopilot).';
       } else if (phase === 'open_cards') {
         text = 'Phase: Hacker/Mit/Pass + Tausch';
@@ -1691,7 +1797,7 @@
       }
 
       if (indicator) indicator.textContent = text;
-      setFlowHint(hint || '1️⃣ Karten geben → 2️⃣ Blind-/10er-Hack → 3️⃣ Hacker/Mit/Pass → 4️⃣ Tausch → 5️⃣ Stiche.');
+      setFlowHint(hint || '1️⃣ Karten geben → 2️⃣ Blind-/10er-/9er-/6er-Hack → 3️⃣ Hacker/Mit/Pass → 4️⃣ Tausch → 5️⃣ Stiche.');
 
       if (btnDeal && btnReveal && btnNextTrump && btnExchange && btnStart && btnPrompt) {
         if (phase === 'idle' || phase === 'finished') {
@@ -1748,6 +1854,8 @@
         if (st) st.value = '0';
       });
       tenHackForced = false;
+      forcedSpecialHackMode = null;
+      roundNoTrump = false;
       fixedHackerId = null;
     }
 
@@ -1868,6 +1976,10 @@
         return;
       }
 
+      ruleTenHackEnabled = !!document.getElementById('ruleTenHack')?.checked;
+      ruleNineHackEnabled = !!document.getElementById('ruleNineHack')?.checked;
+      ruleSixHackEnabled = !!document.getElementById('ruleSixHack')?.checked;
+
       const onlineCfg = getOnlineFormValues();
       online.enabled = !!onlineCfg.enabled;
       if (online.enabled) {
@@ -1921,6 +2033,8 @@
       blindHackerId = null;
       dealerIndex = -1;
       tenHackForced = false;
+      forcedSpecialHackMode = null;
+      roundNoTrump = false;
       tricks = {};
       currentTrick = [];
       activePlayerIds = [];
@@ -2559,13 +2673,13 @@
         const allowed = !!onlinePrompt &&
           onlinePrompt.playerId === playerId &&
           (!expectedType || onlinePrompt.type === expectedType);
-        if (!allowed && !tenHackForced) {
+        if (!allowed && !forcedSpecialHackMode) {
           alert('Bitte warte, bis du der Reihe nach gefragt wirst.');
           return;
         }
       }
-      if (tenHackForced) {
-        alert('Bei 10er-Hacken sind Hacker und Mitgeher vorgegeben und können nicht geändert werden.');
+      if (forcedSpecialHackMode) {
+        alert('In dieser Pflicht-Hack-Runde sind Hacker und Mitgeher vorgegeben und können nicht geändert werden.');
         return;
       }
 
@@ -2662,26 +2776,36 @@ updateExchangeButtons();
 
       slot.className = 'card-small empty';
       slot.innerHTML = '';
-      if (trumpSuit && trumpRank) {
+      if (forcedSpecialHackMode === 'six' && trumpCardObj) {
+        slot.className = 'card-small ' + (isRedSuit(trumpCardObj.suit) ? 'red' : 'black');
+        renderCardFace(slot, { suit: trumpCardObj.suit, rank: trumpCardObj.rank });
+        hint.textContent = `6er-Hacken aktiv: kein Trumpf. Kartenrang pro Farbe: 6 > 7 > 8 > 9 > 10 > B > D > K > A.`;
+      } else if (trumpSuit && trumpRank) {
         slot.className = 'card-small ' + (isRedSuit(trumpSuit) ? 'red' : 'black');
         renderCardFace(slot, { suit: trumpSuit, rank: trumpRank });
-        hint.textContent = `Trumpf: ${trumpRank} ${suitNameDe(trumpSuit)} (max. 3 Trumpfe, 10er-Hacken bei einfachem/doppeltem Pot).`;
+        hint.textContent = `Trumpf: ${trumpRank} ${suitNameDe(trumpSuit)} (max. 3 Trumpfe; 10/9/6-Hacken je nach Regel-Auswahl bei einfachem/doppeltem Pot).`;
       } else {
-        hint.textContent = '„Karten geben (neu)“: Trumpf wird automatisch gezogen (10er-Hacken bei einfachem/doppeltem Pot).';
+        hint.textContent = '„Karten geben (neu)“: Trumpf wird automatisch gezogen (10/9/6-Hacken je nach Regel-Auswahl bei einfachem/doppeltem Pot).';
       }
 
       if (trumpSuit !== null) document.getElementById('trumpSuit').value = trumpSuit;
       if (trumpRank !== null) document.getElementById('trumpRank').value = trumpRank;
     }
 
-    function isTenHackPot() {
+    function isSpecialHackPot() {
       const simplePot = baseStake * players.length;
       const doublePot = simplePot * 2;
       return pot === simplePot || pot === doublePot;
     }
 
-    function applyForcedTenHackIfNeeded() {
-      if (trumpRank !== '10' || !trumpCardObj || !isTenHackPot()) return false;
+    function applyForcedSpecialHackIfNeeded() {
+      if (!trumpCardObj || !isSpecialHackPot()) return false;
+
+      let mode = null;
+      if (trumpRank === '10' && ruleTenHackEnabled) mode = 'ten';
+      if (trumpRank === '9' && ruleNineHackEnabled) mode = 'nine';
+      if (trumpRank === '6' && ruleSixHackEnabled) mode = 'six';
+      if (!mode) return false;
 
       const hackerIndex = (dealerIndex + 1) % players.length;
       const hacker = players[hackerIndex];
@@ -2716,24 +2840,40 @@ updateExchangeButtons();
         if (m) m.disabled = true;
       });
 
-      tenHackForced = true;
+      forcedSpecialHackMode = mode;
+      tenHackForced = mode === 'ten';
+      roundNoTrump = mode === 'six';
+      if (roundNoTrump) trumpSuit = null;
       cardsFaceDown = false;
       phase = 'open_cards';
+      onlineMitStageDone = mode !== 'ten';
+      onlineExchangeStageDone = false;
 
       updateTableHands();
       updateCurrentTrickDisplay();
       updateCurrentTurnHighlight();
+      updateTrumpDisplay();
       updatePhaseUI();
 
-      document.getElementById('roundInfo').textContent =
-        `10er-Hacken aktiv (Pot ${pot} Fr.). ${hacker.name} muss hacken, alle anderen müssen mitgehen.\n` +
-        'In dieser Runde darf niemand Karten tauschen. Die Stichrunde startet direkt.';
-
-      addLog(`10er-Hacken: ${hacker.name} muss hacken, alle anderen müssen mitgehen. Stichrunde startet direkt.`);
-
-      setTimeout(() => {
-        if (phase === 'open_cards') startTrickPhase();
-      }, 80);
+      if (mode === 'ten') {
+        document.getElementById('roundInfo').textContent =
+          `10er-Hacken aktiv (Pot ${pot} Fr.). ${hacker.name} muss hacken, alle anderen müssen mitgehen.\n` +
+          'In dieser Runde darf niemand Karten tauschen. Die Stichrunde startet direkt.';
+        addLog(`10er-Hacken: ${hacker.name} muss hacken, alle anderen müssen mitgehen. Stichrunde startet direkt.`);
+        setTimeout(() => {
+          if (phase === 'open_cards') startTrickPhase();
+        }, 80);
+      } else if (mode === 'nine') {
+        document.getElementById('roundInfo').textContent =
+          `9er-Hacken aktiv (Pot ${pot} Fr.). ${hacker.name} muss hacken, alle anderen müssen mitgehen.\n` +
+          'Tausch ist in dieser Runde erlaubt. Nach dem letzten Tausch startet die Stichrunde automatisch.';
+        addLog(`9er-Hacken: ${hacker.name} muss hacken, alle anderen müssen mitgehen. Tausch erlaubt.`);
+      } else if (mode === 'six') {
+        document.getElementById('roundInfo').textContent =
+          `6er-Hacken aktiv (Pot ${pot} Fr.). ${hacker.name} muss hacken, alle anderen müssen mitgehen.\n` +
+          'Kein Trumpf: Stiche werden nur in der angespielten Farbe gewertet (6 ist höchste Karte). Tausch ist erlaubt.';
+        addLog(`6er-Hacken: ${hacker.name} muss hacken, alle anderen müssen mitgehen. Kein Trumpf, Tausch erlaubt.`);
+      }
 
       return true;
     }
@@ -2786,6 +2926,8 @@ updateExchangeButtons();
       exchangeQueue = [];
       exchangeQueueIndex = 0;
       tenHackForced = false;
+      forcedSpecialHackMode = null;
+      roundNoTrump = false;
       clearRolesAndStiches();
 
       phase = 'dealt_blind';
@@ -2797,7 +2939,7 @@ updateExchangeButtons();
       updateCurrentTurnHighlight();
       updateTrumpDisplay();
 
-      if (applyForcedTenHackIfNeeded()) {
+      if (applyForcedSpecialHackIfNeeded()) {
         kickAutopilot();
         return;
       }
@@ -2841,8 +2983,8 @@ updateExchangeButtons();
           return;
         }
       }
-      if (tenHackForced) {
-        alert('In einer 10er-Hacken-Runde ist Blind-Hack nicht erlaubt.');
+      if (forcedSpecialHackMode) {
+        alert('In einer Pflicht-Hack-Runde ist Blind-Hack nicht erlaubt.');
         return;
       }
       if (phase !== 'dealt_blind') {
@@ -2989,7 +3131,7 @@ updateExchangeButtons();
         `Neuer Trumpf (${trumpDrawCount}. Karte): ${trumpRank} ${suitNameDe(trumpSuit)}.\n` +
         'Noch kein Hacker gewählt – ihr könnt weiterhin entscheiden, ob jemand hackt oder den Trumpf nochmals wechselt (max. 3).';
 
-      if (applyForcedTenHackIfNeeded()) {
+      if (applyForcedSpecialHackIfNeeded()) {
         kickAutopilot();
         return;
       }
@@ -3030,7 +3172,7 @@ function startExchangeForPlayer(playerId) {
     return;
   }
   if (phase !== 'open_cards') {
-    alert('Tauschen ist nur möglich, wenn alle Karten offen sind (nach Blind-/10er-Phase).');
+    alert('Tauschen ist nur möglich, wenn alle Karten offen sind (nach Blind-/Pflicht-Hack-Phase).');
     return;
   }
 
@@ -3437,13 +3579,13 @@ function playCard(playerId, cardIndex, forceSystem = false) {
   if (currentTrick.length > 0) {
     const leadSuit = currentTrick[0].card.suit;
     const hasLead = p.hand.some(c => c.suit === leadSuit);
-    const hasTrump = trumpSuit ? p.hand.some(c => c.suit === trumpSuit) : false;
+    const hasTrump = (!roundNoTrump && trumpSuit) ? p.hand.some(c => c.suit === trumpSuit) : false;
 
     if (hasLead && card.suit !== leadSuit) {
       alert('Du musst die angespielte Farbe bedienen.');
       return;
     }
-    if (!hasLead && trumpSuit && hasTrump && card.suit !== trumpSuit) {
+    if (!hasLead && !roundNoTrump && trumpSuit && hasTrump && card.suit !== trumpSuit) {
       alert('Du musst Trumpf spielen.');
       return;
     }
@@ -3522,11 +3664,11 @@ function determineTrickWinner() {
 
   let winnerEntry = null;
 
-  if (trumpSuit) {
+  if (!roundNoTrump && trumpSuit) {
     const trumpCards = currentTrick.filter(e => e.card.suit === trumpSuit);
     if (trumpCards.length > 0) {
       trumpCards.forEach(entry => {
-        if (!winnerEntry || cardRankValue(entry.card.rank) > cardRankValue(winnerEntry.card.rank)) {
+        if (!winnerEntry || trickRankValue(entry.card.rank) > trickRankValue(winnerEntry.card.rank)) {
           winnerEntry = entry;
         }
       });
@@ -3536,7 +3678,7 @@ function determineTrickWinner() {
 
   currentTrick.forEach(entry => {
     if (entry.card.suit !== leadSuit) return;
-    if (!winnerEntry || cardRankValue(entry.card.rank) > cardRankValue(winnerEntry.card.rank)) {
+    if (!winnerEntry || trickRankValue(entry.card.rank) > trickRankValue(winnerEntry.card.rank)) {
       winnerEntry = entry;
     }
   });
@@ -3546,6 +3688,16 @@ function determineTrickWinner() {
 
     function closeModal() {
       const overlay = document.getElementById('modalOverlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    function openRulesModal() {
+      const overlay = document.getElementById('rulesOverlay');
+      if (overlay) overlay.style.display = 'flex';
+    }
+
+    function closeRulesModal() {
+      const overlay = document.getElementById('rulesOverlay');
       if (overlay) overlay.style.display = 'none';
     }
 
@@ -3564,7 +3716,11 @@ function determineTrickWinner() {
 
       trumpCard.className = 'card-small empty';
       trumpCard.innerHTML = '';
-      if (trumpSuit && trumpRank) {
+      if (forcedSpecialHackMode === 'six' && trumpCardObj) {
+        trumpCard.className = 'card-small ' + (isRedSuit(trumpCardObj.suit) ? 'red' : 'black');
+        renderCardFace(trumpCard, { suit: trumpCardObj.suit, rank: trumpCardObj.rank });
+        trumpText.textContent = '6er-Hacken: kein Trumpf (6 ist höchste Karte der Farbe)';
+      } else if (trumpSuit && trumpRank) {
         trumpCard.className = 'card-small ' + (isRedSuit(trumpSuit) ? 'red' : 'black');
         renderCardFace(trumpCard, { suit: trumpSuit, rank: trumpRank });
         trumpText.textContent = `Trumpf: ${trumpRank} ${suitNameDe(trumpSuit)}`;
@@ -3700,7 +3856,7 @@ function determineTrickWinner() {
         }
 
         // 3) MITGEHEN & TAUSCH PHASE
-        if (phase === 'open_cards' && document.querySelector('input[name="hacker"]:checked')) {
+        if (phase === 'open_cards' && document.querySelector('input[name="hacker"]:checked') && !forcedSpecialHackMode) {
           const hackerId = document.querySelector('input[name="hacker"]:checked').value;
           
           // Mit/Pass Fragen
@@ -3807,7 +3963,7 @@ function determineTrickWinner() {
 // ===== Explizite Setter (kein Toggle!) =====
 function setHackerExplicit(playerId) {
   // verhindert Wechsel, sobald ein Hacker fix ist
-  if (tenHackForced) return;
+  if (forcedSpecialHackMode) return;
 
   const r = document.getElementById('hacker-' + playerId);
   if (!r) return;
@@ -3837,7 +3993,7 @@ function setHackerExplicit(playerId) {
 }
 
 function setMitExplicit(playerId, value) {
-  if (tenHackForced) return;
+  if (forcedSpecialHackMode) return;
 
   // Hacker darf nicht "Mit" sein
   const hr = document.querySelector('input[name="hacker"]:checked');
@@ -3859,7 +4015,7 @@ function setMitExplicit(playerId, value) {
 }
 
 function setPassExplicit(playerId) {
-  if (tenHackForced) return;
+  if (forcedSpecialHackMode) return;
 
   // Hacker darf nicht passen
   const hr = document.querySelector('input[name="hacker"]:checked');
@@ -4093,7 +4249,7 @@ function autopilotChooseBestCard(playerId) {
       // Mit-Spieler: Versuche hoch zu spielen
       let bestIdx = 0;
       for (let i = 1; i < hand.length; i++) {
-        if (cardRankValue(hand[i].rank) > cardRankValue(hand[bestIdx].rank)) {
+        if (trickRankValue(hand[i].rank) > trickRankValue(hand[bestIdx].rank)) {
           bestIdx = i;
         }
       }
@@ -4104,7 +4260,7 @@ function autopilotChooseBestCard(playerId) {
 
   const leadSuit = currentTrick[0].card.suit;
   const hasLead = hand.some(c => c.suit === leadSuit);
-  const hasTrump = trumpSuit ? hand.some(c => c.suit === trumpSuit) : false;
+  const hasTrump = (!roundNoTrump && trumpSuit) ? hand.some(c => c.suit === trumpSuit) : false;
 
   // Regel 1: Bediene Farbe wenn vorhanden
   if (hasLead) {
@@ -4113,7 +4269,7 @@ function autopilotChooseBestCard(playerId) {
     let bestValue = -1;
     for (let i = 0; i < hand.length; i++) {
       if (hand[i].suit === leadSuit) {
-        const val = cardRankValue(hand[i].rank);
+        const val = trickRankValue(hand[i].rank);
         if (val > bestValue) {
           bestValue = val;
           bestIdx = i;
@@ -4131,7 +4287,7 @@ function autopilotChooseBestCard(playerId) {
   }
 
   // Regel 2: Spielen Trumpf wenn Farbe nicht vorhanden
-  if (!hasLead && hasTrump) {
+  if (!hasLead && !roundNoTrump && hasTrump) {
     // Finde tiefsten Trumpf (spare hohe)
     for (let i = hand.length - 1; i >= 0; i--) {
       if (hand[i].suit === trumpSuit) return i;
@@ -4151,8 +4307,8 @@ function autopilotChooseBestCard(playerId) {
   }
   if (!players.length) return;
 
-  if (tenHackForced) {
-    alert('10er-Hacken: Rollen sind fix. Kein Popup nötig.');
+  if (forcedSpecialHackMode) {
+    alert('Pflicht-Hack-Runde: Rollen sind fix. Kein Popup nötig.');
     return;
   }
 
@@ -4297,6 +4453,11 @@ openNextExchangeTurnIfAny();
         blindHackerId,
         dealerIndex,
         tenHackForced,
+        forcedSpecialHackMode,
+        roundNoTrump,
+        ruleTenHackEnabled,
+        ruleNineHackEnabled,
+        ruleSixHackEnabled,
         fixedHackerId,
         modeExchange,
         exchangePlayerId,
@@ -4359,6 +4520,11 @@ openNextExchangeTurnIfAny();
         blindHackerId = state.blindHackerId || null;
         dealerIndex = Number.isInteger(state.dealerIndex) ? state.dealerIndex : -1;
         tenHackForced = !!state.tenHackForced;
+        forcedSpecialHackMode = state.forcedSpecialHackMode || null;
+        roundNoTrump = !!state.roundNoTrump;
+        ruleTenHackEnabled = state.ruleTenHackEnabled !== undefined ? !!state.ruleTenHackEnabled : true;
+        ruleNineHackEnabled = state.ruleNineHackEnabled !== undefined ? !!state.ruleNineHackEnabled : true;
+        ruleSixHackEnabled = state.ruleSixHackEnabled !== undefined ? !!state.ruleSixHackEnabled : true;
         fixedHackerId = state.fixedHackerId || null;
         modeExchange = !!state.modeExchange;
         exchangePlayerId = state.exchangePlayerId || null;
@@ -4388,6 +4554,9 @@ openNextExchangeTurnIfAny();
         document.getElementById('game').style.display = gameVisible ? 'block' : 'none';
         document.getElementById('baseStake').value = baseStake;
         document.getElementById('numPlayers').value = String(players.length || 4);
+        if (document.getElementById('ruleTenHack')) document.getElementById('ruleTenHack').checked = ruleTenHackEnabled;
+        if (document.getElementById('ruleNineHack')) document.getElementById('ruleNineHack').checked = ruleNineHackEnabled;
+        if (document.getElementById('ruleSixHack')) document.getElementById('ruleSixHack').checked = ruleSixHackEnabled;
         initNameInputs();
         players.forEach((p, i) => {
           const inp = document.getElementById('name-setup-' + i);
@@ -4482,7 +4651,12 @@ openNextExchangeTurnIfAny();
         players: players.map(p => ({ id: p.id, name: p.name, balance: p.balance, socketId: p.socketId || null })),
         pot,
         roundNumber,
-        historyRows
+        historyRows,
+        rules: {
+          tenHack: !!ruleTenHackEnabled,
+          nineHack: !!ruleNineHackEnabled,
+          sixHack: !!ruleSixHackEnabled
+        }
       };
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
       catch (e) { console.warn('Speichern fehlgeschlagen', e); }
@@ -4500,6 +4674,9 @@ openNextExchangeTurnIfAny();
       pot = state.pot || 0;
       roundNumber = state.roundNumber || 0;
       historyRows = state.historyRows || [];
+      ruleTenHackEnabled = state.rules ? !!state.rules.tenHack : true;
+      ruleNineHackEnabled = state.rules ? !!state.rules.nineHack : true;
+      ruleSixHackEnabled = state.rules ? !!state.rules.sixHack : true;
       moderatorLines = [];
 
       trumpSuit = null;
@@ -4512,6 +4689,8 @@ openNextExchangeTurnIfAny();
       blindHackerId = null;
       dealerIndex = -1;
       tenHackForced = false;
+      forcedSpecialHackMode = null;
+      roundNoTrump = false;
       fixedHackerId = null;
       modeExchange = false;
       exchangePlayerId = null;
@@ -4528,6 +4707,9 @@ openNextExchangeTurnIfAny();
       trickResolveLock = false;
 
       document.getElementById('baseStake').value = baseStake;
+      if (document.getElementById('ruleTenHack')) document.getElementById('ruleTenHack').checked = ruleTenHackEnabled;
+      if (document.getElementById('ruleNineHack')) document.getElementById('ruleNineHack').checked = ruleNineHackEnabled;
+      if (document.getElementById('ruleSixHack')) document.getElementById('ruleSixHack').checked = ruleSixHackEnabled;
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'block';
 

@@ -976,26 +976,49 @@
       refreshLocalPlayerId();
     }
 
+    function normalizePlayerName(name) {
+      return (name || '').trim().toLowerCase();
+    }
+
     function reconcilePlayersWithRoomMeta() {
       if (!players.length || !online.roomPlayers.length) return;
-      const roomSocketSet = new Set(
-        online.roomPlayers.map(rp => rp.socketId).filter(Boolean)
-      );
+
+      // 1) Bereits bekannte Socket-Matches behalten (nicht überschreiben).
+      const knownSocketToPlayer = new Map();
       players.forEach(p => {
-        if (p.socketId && !roomSocketSet.has(p.socketId)) p.socketId = null;
+        if (p.socketId) knownSocketToPlayer.set(p.socketId, p);
       });
-      const byName = new Map();
+
+      // 2) Eindeutige Namenszuordnung vorbereiten.
+      const playersByName = new Map();
       players.forEach(p => {
-        const key = (p.name || '').trim().toLowerCase();
+        const key = normalizePlayerName(p.name);
         if (!key) return;
-        if (!byName.has(key)) byName.set(key, []);
-        byName.get(key).push(p);
+        if (!playersByName.has(key)) playersByName.set(key, []);
+        playersByName.get(key).push(p);
       });
+
+      const roomByName = new Map();
       online.roomPlayers.forEach(rp => {
-        const key = (rp.name || '').trim().toLowerCase();
-        const arr = byName.get(key) || [];
-        if (arr.length === 1) {
-          arr[0].socketId = rp.socketId || null;
+        const key = normalizePlayerName(rp.name);
+        if (!key) return;
+        if (!roomByName.has(key)) roomByName.set(key, []);
+        roomByName.get(key).push(rp);
+      });
+
+      // 3) Erst Socket-basiert, dann eindeutige Namen mappen.
+      online.roomPlayers.forEach(rp => {
+        if (!rp || !rp.socketId) return;
+
+        const bySocket = knownSocketToPlayer.get(rp.socketId);
+        if (bySocket) return;
+
+        const key = normalizePlayerName(rp.name);
+        const pCandidates = playersByName.get(key) || [];
+        const rCandidates = roomByName.get(key) || [];
+        if (pCandidates.length === 1 && rCandidates.length === 1) {
+          pCandidates[0].socketId = rp.socketId;
+          knownSocketToPlayer.set(rp.socketId, pCandidates[0]);
         }
       });
     }
@@ -1016,11 +1039,24 @@
           online.localPlayerId = bySocket.id;
           return online.localPlayerId;
         }
+
+        // Fallback 1: room-meta kennt meinen Socket -> via eindeutigen Namen auf Spieler mappen.
+        const meInRoom = (online.roomPlayers || []).find(rp => rp.socketId === sid);
+        if (meInRoom) {
+          const key = normalizePlayerName(meInRoom.name);
+          const matches = players.filter(p => normalizePlayerName(p.name) === key);
+          if (matches.length === 1) {
+            matches[0].socketId = sid;
+            online.localPlayerId = matches[0].id;
+            return online.localPlayerId;
+          }
+        }
       }
       const localName = (online.playerName || '').trim().toLowerCase();
       if (localName) {
         const matches = players.filter(p => (p.name || '').trim().toLowerCase() === localName);
         if (matches.length === 1) {
+          if (sid && !matches[0].socketId) matches[0].socketId = sid;
           online.localPlayerId = matches[0].id;
           return online.localPlayerId;
         }
@@ -1050,7 +1086,14 @@
       const sid = getLocalSocketId();
       if (!sid) return false;
       const p = players.find(x => x.id === playerId);
-      return !!p && !!p.socketId && p.socketId === sid;
+      if (p && p.socketId && p.socketId === sid) return true;
+      // Fallback: eindeutiger Name im Raum (hilft bei kurzzeitig fehlender socketId-Zuordnung)
+      const localName = normalizePlayerName(online.playerName);
+      if (localName && p && normalizePlayerName(p.name) === localName) {
+        const sameName = players.filter(x => normalizePlayerName(x.name) === localName);
+        if (sameName.length === 1) return true;
+      }
+      return false;
     }
 
     function requestOnlinePlayCard(playerId, cardIndex) {
@@ -1079,7 +1122,9 @@
 
     function answerOnlinePrompt(value, meta = null) {
       if (!onlinePrompt) return;
-      if (!canControlPlayer(onlinePrompt.playerId)) return;
+      const sid = getLocalSocketId();
+      const directAllowed = !!onlinePrompt.directSocketId && !!sid && onlinePrompt.directSocketId === sid;
+      if (!directAllowed && !canControlPlayer(onlinePrompt.playerId)) return;
       online.localPlayerId = onlinePrompt.playerId;
       let payload = value;
       if (meta && typeof meta === 'object') {
@@ -1129,7 +1174,9 @@
         return;
       }
 
-      if (!canControlPlayer(onlinePrompt.playerId)) return;
+      const sid = getLocalSocketId();
+      const directAllowed = !!onlinePrompt.directSocketId && !!sid && onlinePrompt.directSocketId === sid;
+      if (!directAllowed && !canControlPlayer(onlinePrompt.playerId)) return;
       online.localPlayerId = onlinePrompt.playerId;
 
       onlinePromptShownId = onlinePrompt.id;
@@ -1164,6 +1211,7 @@
         type,
         playerId,
         playerSocketId: players.find(p => p.id === playerId)?.socketId || null,
+        directSocketId: players.find(p => p.id === playerId)?.socketId || null,
         title,
         subtitle,
         buttons,
@@ -1174,6 +1222,14 @@
         answeredBySocketId: null,
         answeredAt: null
       });
+      const targetSocketId = players.find(p => p.id === playerId)?.socketId || null;
+      if (targetSocketId && online.socket && online.roomCode) {
+        online.socket.emit('prompt:ask', {
+          roomCode: online.roomCode,
+          targetSocketId,
+          prompt: onlinePrompt
+        });
+      }
 
       while (onlinePrompt && onlinePrompt.id === id) {
         if (onlinePrompt.answeredValue) {
@@ -1622,6 +1678,14 @@
           online.socket.on('room:meta', (meta) => {
             applyRoomMeta(meta);
           });
+          online.socket.on('prompt:ask', (payload) => {
+            if (!payload || !payload.prompt) return;
+            const sid = getLocalSocketId();
+            const target = payload.prompt.directSocketId || payload.prompt.playerSocketId || null;
+            if (target && sid && target !== sid) return;
+            onlinePrompt = { ...payload.prompt };
+            processOnlinePromptUI();
+          });
           online.socket.on('state:update', (payload) => {
             if (!payload || !payload.state) return;
             if (payload.from && online.socket && payload.from === online.socket.id) return;
@@ -1662,6 +1726,14 @@
 
       online.socket.on('room:meta', (meta) => {
         applyRoomMeta(meta);
+      });
+      online.socket.on('prompt:ask', (payload) => {
+        if (!payload || !payload.prompt) return;
+        const sid = getLocalSocketId();
+        const target = payload.prompt.directSocketId || payload.prompt.playerSocketId || null;
+        if (target && sid && target !== sid) return;
+        onlinePrompt = { ...payload.prompt };
+        processOnlinePromptUI();
       });
 
       online.socket.on('state:update', (payload) => {

@@ -1079,17 +1079,6 @@
       if (meta && typeof meta === 'object') {
         payload = { action: value, ...meta };
       }
-      if (online.enabled && !isOnlineHost()) {
-        if (online.socket && online.roomCode) {
-          online.socket.emit('prompt:answer', {
-            roomCode: online.roomCode,
-            promptId: onlinePrompt.id,
-            playerId: onlinePrompt.playerId,
-            value: payload
-          });
-        }
-        return;
-      }
       onlinePrompt = {
         ...onlinePrompt,
         answeredValue: payload,
@@ -1608,19 +1597,6 @@
             if (payload.from && online.socket && payload.from === online.socket.id) return;
             applyRuntimeState(payload.state, { fromRemote: true });
           });
-          online.socket.on('prompt:answer', (payload) => {
-            if (!payload || !isOnlineHost()) return;
-            if (!onlinePrompt) return;
-            if (payload.promptId !== onlinePrompt.id) return;
-            if (payload.playerId !== onlinePrompt.playerId) return;
-            onlinePrompt = {
-              ...onlinePrompt,
-              answeredValue: payload.value,
-              answeredBySocketId: payload.from || payload.socketId || null,
-              answeredAt: Date.now()
-            };
-            syncRuntimeState(true);
-          });
           return;
         }
         setOnlineStatus(`Verbindung fehlgeschlagen: ${msg}`, true);
@@ -1634,20 +1610,6 @@
         if (!payload || !payload.state) return;
         if (payload.from && online.socket && payload.from === online.socket.id) return;
         applyRuntimeState(payload.state, { fromRemote: true });
-      });
-
-      online.socket.on('prompt:answer', (payload) => {
-        if (!payload || !isOnlineHost()) return;
-        if (!onlinePrompt) return;
-        if (payload.promptId !== onlinePrompt.id) return;
-        if (payload.playerId !== onlinePrompt.playerId) return;
-        onlinePrompt = {
-          ...onlinePrompt,
-          answeredValue: payload.value,
-          answeredBySocketId: payload.from || payload.socketId || null,
-          answeredAt: Date.now()
-        };
-        syncRuntimeState(true);
       });
 
       return online.socket;
@@ -4709,7 +4671,6 @@ openNextExchangeTurnIfAny();
     function syncRuntimeState(force = false) {
       if (!online.enabled || !online.connected || !online.socket || !online.roomCode) return;
       if (online.isApplyingRemote) return;
-      if (online.enabled && !isOnlineHost()) return;
       if (!players.length) return;
 
       const snapshot = exportRuntimeState();

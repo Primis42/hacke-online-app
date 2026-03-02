@@ -767,9 +767,11 @@
     let activePlayerIds = [];
     let currentActiveIndex = 0;
     let tricksPlayed = 0;
+    let trickResolveLock = false;
 
     // History für Speicherung
     let historyRows = [];
+    let moderatorLines = [];
 
     // Online-Sync (Beta)
     const online = {
@@ -1544,12 +1546,21 @@
     }
 
     function addLog(msg) {
+      const t = new Date().toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+      moderatorLines.push(`[${t}] ${msg}`);
+      if (moderatorLines.length > 250) moderatorLines = moderatorLines.slice(-250);
+      renderModeratorLog();
+    }
+
+    function renderModeratorLog() {
       const log = document.getElementById('moderatorLog');
       if (!log) return;
-      const t = new Date().toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
-      const line = document.createElement('div');
-      line.textContent = `[${t}] ${msg}`;
-      log.appendChild(line);
+      log.innerHTML = '';
+      moderatorLines.forEach(text => {
+        const line = document.createElement('div');
+        line.textContent = text;
+        log.appendChild(line);
+      });
       log.scrollTop = log.scrollHeight;
     }
 
@@ -1828,20 +1839,17 @@
       onlineMitStageDone = false;
       trickTurnStartedAt = 0;
       trickTurnPlayerId = null;
+      trickResolveLock = false;
       modeExchange = false;
       exchangePlayerId = null;
       selectedForExchange = new Set();
       exchangeQueue = [];
       exchangeQueueIndex = 0;
       fixedHackerId = null;
-      onlinePrompt = null;
-      onlineMitStageDone = false;
-      trickTurnStartedAt = 0;
-      trickTurnPlayerId = null;
       historyRows = [];
+      moderatorLines = [];
 
-      const log = document.getElementById('moderatorLog');
-      if (log) log.innerHTML = '';
+      renderModeratorLog();
 
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'block';
@@ -2674,6 +2682,7 @@ updateExchangeButtons();
       activePlayerIds = [];
       currentActiveIndex = 0;
       tricksPlayed = 0;
+      trickResolveLock = false;
       trickTurnStartedAt = 0;
       trickTurnPlayerId = null;
       onlineMitStageDone = false;
@@ -3245,6 +3254,7 @@ function startTrickPhase() {
 }
 
 function playCard(playerId, cardIndex, forceSystem = false) {
+  if (trickResolveLock) return;
   if (online.enabled && !forceSystem && !canControlPlayer(playerId)) {
     alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
     return;
@@ -3308,35 +3318,40 @@ function playCard(playerId, cardIndex, forceSystem = false) {
       tricksPlayed++;
       addLog(`Stich ${tricksPlayed} geht an ${winnerName}.`);
     }
-    currentTrick = [];
-    updateTrickCountersUI();
-
-    const idx = activePlayerIds.indexOf(winnerId);
-    currentActiveIndex = idx >= 0 ? idx : 0;
-    trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
-    trickTurnStartedAt = Date.now();
-    updateCurrentTurnHighlight();
+    // Stich kurz vollständig anzeigen (auch letzte Karte bei 2/3 Spielern sichtbar)
+    trickResolveLock = true;
     updateCurrentTrickDisplay();
+    setTimeout(() => {
+      currentTrick = [];
+      updateTrickCountersUI();
 
-    if (tricksPlayed >= 4) {
-      players.forEach(pl => {
-        const inp = document.getElementById('stich-' + pl.id);
-        if (inp) inp.value = (tricks[pl.id] || 0).toString();
-      });
+      const idx = activePlayerIds.indexOf(winnerId);
+      currentActiveIndex = idx >= 0 ? idx : 0;
+      trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
+      trickTurnStartedAt = Date.now();
+      updateCurrentTurnHighlight();
+      updateCurrentTrickDisplay();
 
-      document.getElementById('roundInfo').textContent =
-        'Es wurden 4 Stiche gespielt.\n' +
-        'Stiche pro Spieler:\n' +
-        players.map(pl => `${pl.name}: ${tricks[pl.id] || 0}`).join(', ') +
-        '\nNun in der Verwaltung „Runde auswerten“ klicken.';
+      if (tricksPlayed >= 4) {
+        players.forEach(pl => {
+          const inp = document.getElementById('stich-' + pl.id);
+          if (inp) inp.value = (tricks[pl.id] || 0).toString();
+        });
 
-      phase = 'finished';
-      updatePhaseUI();
-      switchView('admin');
+        document.getElementById('roundInfo').textContent =
+          'Es wurden 4 Stiche gespielt.\n' +
+          'Stiche pro Spieler:\n' +
+          players.map(pl => `${pl.name}: ${tricks[pl.id] || 0}`).join(', ') +
+          '\nNun in der Verwaltung „Runde auswerten“ klicken.';
 
-      addLog('Alle 4 Stiche sind gespielt – Runde kann ausgewertet werden.');
+        phase = 'finished';
+        updatePhaseUI();
+        switchView('admin');
 
-    }
+        addLog('Alle 4 Stiche sind gespielt – Runde kann ausgewertet werden.');
+      }
+      trickResolveLock = false;
+    }, 550);
   } else {
     currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
     trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
@@ -4125,6 +4140,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
         onlinePrompt: onlinePrompt ? JSON.parse(JSON.stringify(onlinePrompt)) : null,
         trickTurnStartedAt,
         trickTurnPlayerId,
+        moderatorLines: Array.isArray(moderatorLines) ? [...moderatorLines] : [],
         historyRows: Array.isArray(historyRows) ? JSON.parse(JSON.stringify(historyRows)) : [],
         roleState,
         ui: {
@@ -4184,6 +4200,8 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
         onlinePrompt = state.onlinePrompt ? JSON.parse(JSON.stringify(state.onlinePrompt)) : null;
         trickTurnStartedAt = Number(state.trickTurnStartedAt) || 0;
         trickTurnPlayerId = state.trickTurnPlayerId || null;
+        trickResolveLock = false;
+        moderatorLines = Array.isArray(state.moderatorLines) ? [...state.moderatorLines] : [];
         historyRows = Array.isArray(state.historyRows) ? JSON.parse(JSON.stringify(state.historyRows)) : [];
 
         const setupVisible = !!state.ui?.setupVisible;
@@ -4211,6 +4229,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
           updateCurrentTurnHighlight();
           updatePhaseUI();
           updateExchangeButtons();
+          renderModeratorLog();
 
           const roleState = state.roleState || {};
           players.forEach(p => {
@@ -4303,6 +4322,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
       pot = state.pot || 0;
       roundNumber = state.roundNumber || 0;
       historyRows = state.historyRows || [];
+      moderatorLines = [];
 
       trumpSuit = null;
       trumpRank = null;
@@ -4327,6 +4347,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
       tricksPlayed = 0;
       trickTurnStartedAt = 0;
       trickTurnPlayerId = null;
+      trickResolveLock = false;
 
       document.getElementById('baseStake').value = baseStake;
       document.getElementById('setup').style.display = 'none';
@@ -4345,8 +4366,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
       updateCurrentTurnHighlight();
       updatePhaseUI();
 
-      const log = document.getElementById('moderatorLog');
-      if (log) log.innerHTML = '';
+      renderModeratorLog();
       addLog('Gespeichertes Spiel geladen. Kontostände & Pot wiederhergestellt.');
 
       document.getElementById('roundInfo').textContent =

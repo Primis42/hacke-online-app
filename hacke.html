@@ -1045,7 +1045,11 @@
     function canControlPlayer(playerId) {
       if (!online.enabled) return true;
       const localId = getLocalGamePlayerId();
-      return !!localId && localId === playerId;
+      if (localId && localId === playerId) return true;
+      const sid = getLocalSocketId();
+      if (!sid) return false;
+      const p = players.find(x => x.id === playerId);
+      return !!p && !!p.socketId && p.socketId === sid;
     }
 
     function sleep(ms) {
@@ -3543,8 +3547,13 @@ function startTrickPhase() {
   }
 
   activePlayerIds = [];
-  players.forEach(p => { if (p.id === hackerId || mitGeher[p.id]) activePlayerIds.push(p.id); });
-  if (!activePlayerIds.includes(hackerId)) activePlayerIds.unshift(hackerId);
+  if (forcedSpecialHackMode) {
+    // Pflicht-Hack-Runden: alle Spieler sind zwingend aktiv.
+    activePlayerIds = players.map(p => p.id);
+  } else {
+    players.forEach(p => { if (p.id === hackerId || mitGeher[p.id]) activePlayerIds.push(p.id); });
+    if (!activePlayerIds.includes(hackerId)) activePlayerIds.unshift(hackerId);
+  }
 
   if (!activePlayerIds.length) {
     alert('Keine aktiven Spieler gefunden.');
@@ -4666,7 +4675,10 @@ openNextExchangeTurnIfAny();
       });
     }
 
-    setInterval(syncRuntimeState, 350);
+    setInterval(() => {
+      if (online.enabled && !isOnlineHost()) return;
+      syncRuntimeState();
+    }, 350);
     setInterval(() => {
       processOnlinePromptUI();
       runOnlineCoordinator().catch(() => {});

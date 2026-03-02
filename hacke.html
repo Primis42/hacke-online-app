@@ -1069,11 +1069,12 @@
     function answerOnlinePrompt(value, meta = null) {
       if (!onlinePrompt) return;
       const localId = getLocalGamePlayerId();
-      const sid = getLocalSocketId();
-      const playerSocketMatch = !!sid && !!onlinePrompt.playerSocketId && sid === onlinePrompt.playerSocketId;
-      const playerIdMatch = !!localId && localId === onlinePrompt.playerId;
-      if (!playerIdMatch && !playerSocketMatch) return;
-      if (!playerIdMatch && playerSocketMatch) online.localPlayerId = onlinePrompt.playerId;
+      if (!localId || localId !== onlinePrompt.playerId) {
+        const sid = getLocalSocketId();
+        const promptPlayer = players.find(p => p.id === onlinePrompt.playerId);
+        if (!sid || !promptPlayer || !promptPlayer.socketId || promptPlayer.socketId !== sid) return;
+        online.localPlayerId = onlinePrompt.playerId;
+      }
       let payload = value;
       if (meta && typeof meta === 'object') {
         payload = { action: value, ...meta };
@@ -1113,11 +1114,12 @@
       if (onlinePrompt.answeredValue) return;
 
       const localId = getLocalGamePlayerId();
-      const sid = getLocalSocketId();
-      const playerSocketMatch = !!sid && !!onlinePrompt.playerSocketId && sid === onlinePrompt.playerSocketId;
-      const playerIdMatch = !!localId && localId === onlinePrompt.playerId;
-      if (!playerIdMatch && !playerSocketMatch) return;
-      if (!playerIdMatch && playerSocketMatch) online.localPlayerId = onlinePrompt.playerId;
+      if (!localId || localId !== onlinePrompt.playerId) {
+        const sid = getLocalSocketId();
+        const promptPlayer = players.find(p => p.id === onlinePrompt.playerId);
+        if (!sid || !promptPlayer || !promptPlayer.socketId || promptPlayer.socketId !== sid) return;
+        online.localPlayerId = onlinePrompt.playerId;
+      }
 
       onlinePromptShownId = onlinePrompt.id;
       openModal({
@@ -1146,12 +1148,10 @@
       if (!online.enabled || !isOnlineHost()) return defaultValue;
 
       const id = `pr-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-      const promptPlayerSocketId = players.find(p => p.id === playerId)?.socketId || null;
       setOnlinePrompt({
         id,
         type,
         playerId,
-        playerSocketId: promptPlayerSocketId,
         title,
         subtitle,
         buttons,
@@ -1622,7 +1622,6 @@
             if (!onlinePrompt) return;
             if (payload.promptId !== onlinePrompt.id) return;
             if (payload.playerId !== onlinePrompt.playerId) return;
-            if (onlinePrompt.playerSocketId && payload.from && payload.from !== onlinePrompt.playerSocketId) return;
             onlinePrompt = {
               ...onlinePrompt,
               answeredValue: payload.value,
@@ -1634,8 +1633,6 @@
           online.socket.on('trick:play', (payload) => {
             if (!payload || !isOnlineHost()) return;
             if (!players.length) return;
-            const p = players.find(x => x.id === payload.playerId);
-            if (!p || !payload.from || !p.socketId || p.socketId !== payload.from) return;
             playCard(payload.playerId, Number(payload.cardIndex), true);
           });
           return;
@@ -1658,7 +1655,6 @@
         if (!onlinePrompt) return;
         if (payload.promptId !== onlinePrompt.id) return;
         if (payload.playerId !== onlinePrompt.playerId) return;
-        if (onlinePrompt.playerSocketId && payload.from && payload.from !== onlinePrompt.playerSocketId) return;
         onlinePrompt = {
           ...onlinePrompt,
           answeredValue: payload.value,
@@ -1670,8 +1666,6 @@
       online.socket.on('trick:play', (payload) => {
         if (!payload || !isOnlineHost()) return;
         if (!players.length) return;
-        const p = players.find(x => x.id === payload.playerId);
-        if (!p || !payload.from || !p.socketId || p.socketId !== payload.from) return;
         playCard(payload.playerId, Number(payload.cardIndex), true);
       });
 

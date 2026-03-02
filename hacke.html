@@ -978,11 +978,8 @@
 
     function reconcilePlayersWithRoomMeta() {
       if (!players.length || !online.roomPlayers.length) return;
-      if (players.length === online.roomPlayers.length) {
-        for (let i = 0; i < players.length; i++) {
-          players[i].socketId = online.roomPlayers[i]?.socketId || players[i].socketId || null;
-        }
-      }
+      // Keine positionsbasierte Zuordnung: Reihenfolge im Room-Meta kann sich ändern.
+      // Wir synchronisieren nur sicher über eindeutige Namen.
       const byName = new Map();
       players.forEach(p => {
         const key = (p.name || '').trim().toLowerCase();
@@ -1337,7 +1334,6 @@
                 onlineMitStageDone = false;
                 onlineExchangeStageDone = false;
                 hackHistory.push(`${p.name} hackt`);
-                addLog(`${p.name} hackt.`);
                 hacked = true;
                 break;
               } else {

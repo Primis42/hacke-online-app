@@ -128,6 +128,22 @@ io.on('connection', (socket) => {
     if (typeof ack === 'function') ack({ ok: true, state: room.state, room: sanitizeRoom(room) });
   });
 
+  socket.on('prompt:answer', ({ roomCode, promptId, playerId, value }, ack) => {
+    const code = String(roomCode || socket.data.roomCode || '').toUpperCase().trim();
+    const room = rooms.get(code);
+    if (!room) {
+      if (typeof ack === 'function') ack({ ok: false, error: 'Raum nicht gefunden.' });
+      return;
+    }
+    io.to(code).emit('prompt:answer', {
+      from: socket.id,
+      promptId,
+      playerId,
+      value
+    });
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
   socket.on('disconnect', () => {
     const code = socket.data.roomCode;
     if (!code) return;

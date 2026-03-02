@@ -128,6 +128,41 @@ io.on('connection', (socket) => {
     if (typeof ack === 'function') ack({ ok: true, state: room.state, room: sanitizeRoom(room) });
   });
 
+  socket.on('action:decision', ({ roomCode, promptId, playerId, value }, ack) => {
+    const code = String(roomCode || socket.data.roomCode || '').toUpperCase().trim();
+    const room = rooms.get(code);
+    if (!room) {
+      if (typeof ack === 'function') ack({ ok: false, error: 'Raum nicht gefunden.' });
+      return;
+    }
+    io.to(code).emit('action:decision', {
+      from: socket.id,
+      fromName: (socket.data.playerName || '').trim(),
+      roomCode: code,
+      promptId,
+      playerId,
+      value
+    });
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
+  socket.on('action:play', ({ roomCode, playerId, cardIndex }, ack) => {
+    const code = String(roomCode || socket.data.roomCode || '').toUpperCase().trim();
+    const room = rooms.get(code);
+    if (!room) {
+      if (typeof ack === 'function') ack({ ok: false, error: 'Raum nicht gefunden.' });
+      return;
+    }
+    io.to(code).emit('action:play', {
+      from: socket.id,
+      fromName: (socket.data.playerName || '').trim(),
+      roomCode: code,
+      playerId,
+      cardIndex
+    });
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
   socket.on('disconnect', () => {
     const code = socket.data.roomCode;
     if (!code) return;

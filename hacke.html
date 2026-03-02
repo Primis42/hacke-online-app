@@ -1088,6 +1088,27 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    function requestOnlineDecision(promptId, playerId, value) {
+      if (!online.enabled || !online.socket || !online.roomCode) return false;
+      online.socket.emit('action:decision', {
+        roomCode: online.roomCode,
+        promptId,
+        playerId,
+        value
+      });
+      return true;
+    }
+
+    function requestOnlinePlayCard(playerId, cardIndex) {
+      if (!online.enabled || !online.socket || !online.roomCode) return false;
+      online.socket.emit('action:play', {
+        roomCode: online.roomCode,
+        playerId,
+        cardIndex
+      });
+      return true;
+    }
+
     function setOnlinePrompt(promptObj) {
       onlinePrompt = promptObj;
       syncRuntimeState();
@@ -1105,6 +1126,16 @@
       let payload = value;
       if (meta && typeof meta === 'object') {
         payload = { action: value, ...meta };
+      }
+      if (online.enabled && !isOnlineHost()) {
+        onlinePrompt = {
+          ...onlinePrompt,
+          answeredValue: payload,
+          answeredBySocketId: getLocalSocketId(),
+          answeredAt: Date.now()
+        };
+        requestOnlineDecision(onlinePrompt.id, onlinePrompt.playerId, payload);
+        return;
       }
       onlinePrompt = {
         ...onlinePrompt,
@@ -1629,6 +1660,32 @@
             if (payload.from && online.socket && payload.from === online.socket.id) return;
             applyRuntimeState(payload.state, { fromRemote: true });
           });
+          online.socket.on('action:decision', (payload) => {
+            if (!payload || !isOnlineHost()) return;
+            if (!onlinePrompt) return;
+            if (payload.promptId !== onlinePrompt.id) return;
+            if (payload.playerId !== onlinePrompt.playerId) return;
+            const player = players.find(p => p.id === payload.playerId);
+            const fromName = normalizePlayerName(payload.fromName || '');
+            if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
+            onlinePrompt = {
+              ...onlinePrompt,
+              answeredValue: payload.value,
+              answeredBySocketId: payload.from || null,
+              answeredAt: Date.now()
+            };
+            syncRuntimeState(true);
+          });
+          online.socket.on('action:play', (payload) => {
+            if (!payload || !isOnlineHost()) return;
+            if (phase !== 'tricks') return;
+            const player = players.find(p => p.id === payload.playerId);
+            const fromName = normalizePlayerName(payload.fromName || '');
+            if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
+            const idx = Number(payload.cardIndex);
+            if (!Number.isInteger(idx) || idx < 0) return;
+            playCard(payload.playerId, idx, true);
+          });
           return;
         }
         setOnlineStatus(`Verbindung fehlgeschlagen: ${msg}`, true);
@@ -1641,6 +1698,32 @@
         if (!payload || !payload.state) return;
         if (payload.from && online.socket && payload.from === online.socket.id) return;
         applyRuntimeState(payload.state, { fromRemote: true });
+      });
+      online.socket.on('action:decision', (payload) => {
+        if (!payload || !isOnlineHost()) return;
+        if (!onlinePrompt) return;
+        if (payload.promptId !== onlinePrompt.id) return;
+        if (payload.playerId !== onlinePrompt.playerId) return;
+        const player = players.find(p => p.id === payload.playerId);
+        const fromName = normalizePlayerName(payload.fromName || '');
+        if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
+        onlinePrompt = {
+          ...onlinePrompt,
+          answeredValue: payload.value,
+          answeredBySocketId: payload.from || null,
+          answeredAt: Date.now()
+        };
+        syncRuntimeState(true);
+      });
+      online.socket.on('action:play', (payload) => {
+        if (!payload || !isOnlineHost()) return;
+        if (phase !== 'tricks') return;
+        const player = players.find(p => p.id === payload.playerId);
+        const fromName = normalizePlayerName(payload.fromName || '');
+        if (!player || !fromName || normalizePlayerName(player.name) !== fromName) return;
+        const idx = Number(payload.cardIndex);
+        if (!Number.isInteger(idx) || idx < 0) return;
+        playCard(payload.playerId, idx, true);
       });
       return online.socket;
     }
@@ -3615,6 +3698,14 @@ function startTrickPhase() {
 
 function playCard(playerId, cardIndex, forceSystem = false) {
   if (trickResolveLock) return;
+  if (online.enabled && !forceSystem && !isOnlineHost()) {
+    if (!canControlPlayer(playerId)) {
+      alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
+      return;
+    }
+    requestOnlinePlayCard(playerId, cardIndex);
+    return;
+  }
   if (online.enabled && !forceSystem && !canControlPlayer(playerId)) {
     alert('Im Online-Modus kannst du nur deine eigenen Karten spielen.');
     return;
@@ -4706,6 +4797,7 @@ openNextExchangeTurnIfAny();
 
     function syncRuntimeState(force = false) {
       if (!online.enabled || !online.connected || !online.socket || !online.roomCode) return;
+      if (online.enabled && !isOnlineHost()) return;
       if (online.isApplyingRemote) return;
       if (!players.length) return;
 
@@ -4724,6 +4816,7 @@ openNextExchangeTurnIfAny();
     }
 
     setInterval(() => {
+      if (online.enabled && !isOnlineHost()) return;
       syncRuntimeState();
     }, 350);
     setInterval(() => {

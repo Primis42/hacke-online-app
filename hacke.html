@@ -3794,6 +3794,7 @@ function playCard(playerId, cardIndex, forceSystem = false) {
     trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
     trickTurnStartedAt = Date.now();
     updateCurrentTurnHighlight();
+    syncRuntimeState();
   }
 }
 

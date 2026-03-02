@@ -1089,6 +1089,24 @@
       if (meta && typeof meta === 'object') {
         payload = { action: value, ...meta };
       }
+      if (online.enabled && !isOnlineHost()) {
+        // Lokal markieren, damit der Button nicht doppelt geklickt wird.
+        onlinePrompt = {
+          ...onlinePrompt,
+          answeredValue: payload,
+          answeredBySocketId: getLocalSocketId(),
+          answeredAt: Date.now()
+        };
+        if (online.socket && online.roomCode) {
+          online.socket.emit('prompt:answer', {
+            roomCode: online.roomCode,
+            promptId: onlinePrompt.id,
+            playerId: onlinePrompt.playerId,
+            value: payload
+          });
+        }
+        return;
+      }
       onlinePrompt = {
         ...onlinePrompt,
         answeredValue: payload,
@@ -1154,6 +1172,7 @@
         id,
         type,
         playerId,
+        playerSocketId: players.find(p => p.id === playerId)?.socketId || null,
         title,
         subtitle,
         buttons,
@@ -1617,6 +1636,24 @@
             if (payload.from && online.socket && payload.from === online.socket.id) return;
             applyRuntimeState(payload.state, { fromRemote: true });
           });
+          online.socket.on('prompt:answer', (payload) => {
+            if (!payload || !isOnlineHost()) return;
+            if (!onlinePrompt) return;
+            if (payload.promptId !== onlinePrompt.id) return;
+            if (payload.playerId !== onlinePrompt.playerId) return;
+            const expectedSocketId =
+              onlinePrompt.playerSocketId ||
+              players.find(p => p.id === onlinePrompt.playerId)?.socketId ||
+              null;
+            if (expectedSocketId && payload.from && payload.from !== expectedSocketId) return;
+            onlinePrompt = {
+              ...onlinePrompt,
+              answeredValue: payload.value,
+              answeredBySocketId: payload.from || null,
+              answeredAt: Date.now()
+            };
+            syncRuntimeState(true);
+          });
           online.socket.on('trick:play', (payload) => {
             if (!payload || !isOnlineHost()) return;
             if (phase !== 'tricks') return;
@@ -1640,6 +1677,24 @@
         if (!payload || !payload.state) return;
         if (payload.from && online.socket && payload.from === online.socket.id) return;
         applyRuntimeState(payload.state, { fromRemote: true });
+      });
+      online.socket.on('prompt:answer', (payload) => {
+        if (!payload || !isOnlineHost()) return;
+        if (!onlinePrompt) return;
+        if (payload.promptId !== onlinePrompt.id) return;
+        if (payload.playerId !== onlinePrompt.playerId) return;
+        const expectedSocketId =
+          onlinePrompt.playerSocketId ||
+          players.find(p => p.id === onlinePrompt.playerId)?.socketId ||
+          null;
+        if (expectedSocketId && payload.from && payload.from !== expectedSocketId) return;
+        onlinePrompt = {
+          ...onlinePrompt,
+          answeredValue: payload.value,
+          answeredBySocketId: payload.from || null,
+          answeredAt: Date.now()
+        };
+        syncRuntimeState(true);
       });
       online.socket.on('trick:play', (payload) => {
         if (!payload || !isOnlineHost()) return;
@@ -4703,7 +4758,7 @@ openNextExchangeTurnIfAny();
 
     function syncRuntimeState(force = false) {
       if (!online.enabled || !online.connected || !online.socket || !online.roomCode) return;
-      if (online.enabled && !isOnlineHost() && phase === 'tricks') return;
+      if (online.enabled && !isOnlineHost()) return;
       if (online.isApplyingRemote) return;
       if (!players.length) return;
 

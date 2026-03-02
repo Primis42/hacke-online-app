@@ -1208,6 +1208,13 @@
       if (!online.enabled || !isOnlineHost()) return;
       if (phase !== 'tricks' || !activePlayerIds.length) return;
 
+      for (let i = 0; i < activePlayerIds.length; i++) {
+        const curId = activePlayerIds[currentActiveIndex];
+        const curP = players.find(pl => pl.id === curId);
+        if (curP && Array.isArray(curP.hand) && curP.hand.length > 0) break;
+        currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
+      }
+
       const currentId = activePlayerIds[currentActiveIndex];
       if (!currentId) return;
 
@@ -3456,29 +3463,6 @@ function applyExchangeSelectionForPlayer(playerId, selectedIndices) {
   updateTableHands();
   return true;
 }
-
-
-
-  if (exchangeQueue.length) {
-    exchangeQueueIndex++;
-    if (exchangeQueueIndex < exchangeQueue.length) {
-      const nextId = exchangeQueue[exchangeQueueIndex];
-      const nextName = players.find(pl => pl.id === nextId)?.name || 'nächster Spieler';
-      document.getElementById('roundInfo').textContent +=
-        `\nJetzt ist ${nextName} an der Reihe. Falls er tauschen möchte, „Tauschen“ bei ihm drücken.`;
-        updateExchangeButtons();
-
-        if (window.autopilot && exchangeQueue.length && exchangeQueueIndex >= exchangeQueue.length) {
-        addLog('Autopilot: Tausch abgeschlossen → Stichrunde startet.');
-        setTimeout(startTrickPhase, 80);
-        }
-
-    } else {
-      document.getElementById('roundInfo').textContent +=
-        '\nAlle beteiligten Spieler hatten die Möglichkeit zu tauschen.';
-    }
-  }
-
 function startTrickPhase() {
   if (!players.length) return;
   if (modeExchange) {
@@ -3606,6 +3590,14 @@ function playCard(playerId, cardIndex, forceSystem = false) {
     return;
   }
 
+  // Stabilisierung: Falls durch Sync ein Spieler ohne Karten "am Zug" ist, weiterdrehen.
+  for (let i = 0; i < activePlayerIds.length; i++) {
+    const curId = activePlayerIds[currentActiveIndex];
+    const curP = players.find(pl => pl.id === curId);
+    if (curP && Array.isArray(curP.hand) && curP.hand.length > 0) break;
+    currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
+  }
+
   const currentId = activePlayerIds[currentActiveIndex];
   if (playerId !== currentId) {
     alert('Nicht dein Zug.');
@@ -3647,7 +3639,14 @@ function playCard(playerId, cardIndex, forceSystem = false) {
     window.autopilotPlayResolve = null;
   }
 
-  if (currentTrick.length === activePlayerIds.length) {
+  const expectedInThisTrick = activePlayerIds.filter(id => {
+    const pl = players.find(p => p.id === id);
+    if (!pl) return false;
+    if (currentTrick.some(e => e.playerId === id)) return true;
+    return Array.isArray(pl.hand) && pl.hand.length > 0;
+  }).length;
+
+  if (currentTrick.length === expectedInThisTrick) {
     const winnerId = determineTrickWinner();
     if (winnerId) {
       tricks[winnerId] = (tricks[winnerId] || 0) + 1;
@@ -3693,6 +3692,12 @@ function playCard(playerId, cardIndex, forceSystem = false) {
     }, 550);
   } else {
     currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
+    for (let i = 0; i < activePlayerIds.length; i++) {
+      const curId = activePlayerIds[currentActiveIndex];
+      const curP = players.find(pl => pl.id === curId);
+      if (curP && Array.isArray(curP.hand) && curP.hand.length > 0) break;
+      currentActiveIndex = (currentActiveIndex + 1) % activePlayerIds.length;
+    }
     trickTurnPlayerId = activePlayerIds[currentActiveIndex] || null;
     trickTurnStartedAt = Date.now();
     updateCurrentTurnHighlight();

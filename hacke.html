@@ -3478,9 +3478,6 @@ function applyExchangeSelectionForPlayer(playerId, selectedIndices) {
   }
 
 function startTrickPhase() {
-  if (online.enabled && !isOnlineHost()) {
-    return;
-  }
   if (!players.length) return;
   if (modeExchange) {
     alert('Bitte zuerst den aktuellen Tausch abschliessen (Tausch ausführen) oder ohne Tausch beenden.');
@@ -3500,13 +3497,8 @@ function startTrickPhase() {
 
   const mitGeher = {};
   players.forEach(p => { mitGeher[p.id] = document.getElementById('mit-' + p.id).checked; });
-  let numMit = players.filter(p => mitGeher[p.id]).length;
-  if (!forcedSpecialHackMode && Array.isArray(exchangeQueue) && exchangeQueue.length > 0) {
-    const queueIds = exchangeQueue.filter(pid => players.some(p => p.id === pid));
-    if (queueIds.length > 0) {
-      numMit = Math.max(0, queueIds.length - 1);
-    }
-  }
+
+  const numMit = players.filter(p => mitGeher[p.id]).length;
 
   if (numMit === 0) {
     const hacker = players.find(p => p.id === hackerId);
@@ -3558,10 +3550,6 @@ function startTrickPhase() {
   if (forcedSpecialHackMode) {
     // Pflicht-Hack-Runden: alle Spieler sind zwingend aktiv.
     activePlayerIds = players.map(p => p.id);
-  } else if (Array.isArray(exchangeQueue) && exchangeQueue.length > 0) {
-    // Stabiler Fallback: nutze die bereits validierte Tausch-/Teilnehmer-Reihenfolge.
-    activePlayerIds = exchangeQueue.filter(pid => players.some(p => p.id === pid));
-    numMit = Math.max(0, activePlayerIds.length - 1);
   } else {
     players.forEach(p => { if (p.id === hackerId || mitGeher[p.id]) activePlayerIds.push(p.id); });
     if (!activePlayerIds.includes(hackerId)) activePlayerIds.unshift(hackerId);

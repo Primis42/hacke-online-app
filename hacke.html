@@ -792,6 +792,7 @@
     let onlinePromptShownId = null;
     let onlineCoordinatorLock = false;
     let onlineMitStageDone = false;
+    let onlineExchangeStageDone = false;
     let trickTurnStartedAt = 0;
     let trickTurnPlayerId = null;
 
@@ -956,13 +957,17 @@
       syncRuntimeState();
     }
 
-    function answerOnlinePrompt(value) {
+    function answerOnlinePrompt(value, meta = null) {
       if (!onlinePrompt) return;
       const localId = getLocalGamePlayerId();
       if (!localId || localId !== onlinePrompt.playerId) return;
+      let payload = value;
+      if (meta && typeof meta === 'object') {
+        payload = { action: value, ...meta };
+      }
       onlinePrompt = {
         ...onlinePrompt,
-        answeredValue: value,
+        answeredValue: payload,
         answeredBySocketId: getLocalSocketId(),
         answeredAt: Date.now()
       };
@@ -991,9 +996,10 @@
         subtitle: onlinePrompt.subtitle || '',
         showPlayerHands: !!onlinePrompt.showPlayerHands,
         currentPlayerId: onlinePrompt.playerId,
+        exchangeMode: onlinePrompt.type === 'exchange',
         buttons: (onlinePrompt.buttons || []).map(b => ({
           label: b.label,
-          onClick: () => answerOnlinePrompt(b.value)
+          onClick: (meta) => answerOnlinePrompt(b.value, meta)
         }))
       });
     }
@@ -1113,17 +1119,24 @@
       if (onlinePrompt) return;
       onlineCoordinatorLock = true;
       try {
+        if (phase !== 'open_cards') {
+          onlineMitStageDone = false;
+          onlineExchangeStageDone = false;
+        }
+
         // 1) Blind-Hack reihum fragen
         if (phase === 'dealt_blind' && !blindHackerId) {
-          let previousInfo = '';
+          const blindHistory = [];
           const order = dealerOrderIds();
           for (let i = 0; i < order.length; i++) {
             if (phase !== 'dealt_blind' || blindHackerId) break;
             const pid = order[i];
             const p = players.find(x => x.id === pid);
             if (!p) continue;
-            const subtitle = previousInfo
-              ? `${previousInfo} Willst du den Trumpf blind aufnehmen?`
+            document.getElementById('roundInfo').textContent = `${p.name} ist dran: Blind-Entscheid.`;
+            syncRuntimeState();
+            const subtitle = blindHistory.length
+              ? `${blindHistory.join(', ')}. Willst du den Trumpf blind aufnehmen?`
               : 'Willst du den Trumpf blind aufnehmen?';
             const ans = await askOnlinePlayerDecision({
               type: 'blind',
@@ -1140,20 +1153,27 @@
             });
             if (ans === 'blind') {
               blindHack(pid, true);
-              previousInfo = `${p.name} nimmt den Trumpf blind auf.`;
+              const msg = `${p.name} nimmt den Trumpf blind auf`;
+              blindHistory.push(msg);
+              addLog(`${msg}.`);
               break;
             } else {
-              previousInfo = `${p.name} nimmt den Trumpf nicht blind.`;
-              addLog(previousInfo);
+              const msg = `${p.name} nimmt den Trumpf nicht blind`;
+              blindHistory.push(msg);
+              addLog(`${msg}.`);
             }
           }
-          if (phase === 'dealt_blind' && !blindHackerId) revealAllHands();
+          if (phase === 'dealt_blind' && !blindHackerId) {
+            addLog('Niemand nimmt den Trumpf blind auf. Karten werden automatisch aufgedeckt.');
+            revealAllHands();
+          }
         }
 
         // 2) Hack-Frage (inkl. Trumpfwechsel bis max. 3)
         if (phase === 'open_cards' && !tenHackForced && !document.querySelector('input[name="hacker"]:checked')) {
           onlineMitStageDone = false;
-          let historyText = '';
+          onlineExchangeStageDone = false;
+          const hackHistory = [];
           while (phase === 'open_cards' && !document.querySelector('input[name="hacker"]:checked')) {
             const order = dealerOrderIds();
             let hacked = false;
@@ -1163,8 +1183,10 @@
               const pid = order[i];
               const p = players.find(x => x.id === pid);
               if (!p) continue;
-              const subtitle = historyText
-                ? `${historyText} Willst du mit diesem Trumpf hacken?`
+              document.getElementById('roundInfo').textContent = `${p.name} ist dran: Hacken entscheiden.`;
+              syncRuntimeState();
+              const subtitle = hackHistory.length
+                ? `${hackHistory.join(', ')}. Willst du mit diesem Trumpf hacken?`
                 : 'Willst du mit diesem Trumpf hacken?';
               const ans = await askOnlinePlayerDecision({
                 type: 'hack',
@@ -1182,15 +1204,19 @@
               if (ans === 'hack') {
                 setPlayerDecision(pid, 'hack', true);
                 onlineMitStageDone = false;
-                historyText = `${p.name} hackt.`;
+                onlineExchangeStageDone = false;
+                hackHistory.push(`${p.name} hackt`);
+                addLog(`${p.name} hackt.`);
                 hacked = true;
                 break;
               } else {
-                historyText = `${p.name} hackt nicht.`;
+                hackHistory.push(`${p.name} hackt nicht`);
+                addLog(`${p.name} hackt nicht.`);
               }
             }
             if (hacked || document.querySelector('input[name="hacker"]:checked')) break;
             if (phase !== 'open_cards') break;
+            addLog('Niemand hackt mit diesem Trumpf. Nächster Trumpf wird aufgedeckt.');
             nextTrump();
             if (phase === 'idle') break;
           }
@@ -1202,18 +1228,20 @@
           if (hackerEl) {
             const hackerId = hackerEl.value;
             const hackerName = players.find(p => p.id === hackerId)?.name || 'Der Hacker';
-            let context = `${hackerName} hackt.`;
+            const contextParts = [`${hackerName} hackt`];
             const order = dealerOrderIds();
             for (let i = 0; i < order.length; i++) {
               const pid = order[i];
               if (pid === hackerId) continue;
               const p = players.find(x => x.id === pid);
               if (!p) continue;
+              document.getElementById('roundInfo').textContent = `${p.name} ist dran: Mitgehen oder passen.`;
+              syncRuntimeState();
               const ans = await askOnlinePlayerDecision({
                 type: 'mit',
                 playerId: pid,
                 title: `${p.name} – Mitgehen?`,
-                subtitle: `${context} Gehst du mit?`,
+                subtitle: `${contextParts.join(', ')}, was machst du?`,
                 buttons: [
                   { label: 'Mit', value: 'mit' },
                   { label: 'Pass', value: 'pass' }
@@ -1224,13 +1252,72 @@
               });
               if (ans === 'mit') {
                 setMitExplicit(pid, true);
-                context = `${p.name} geht mit.`;
+                contextParts.push(`${p.name} geht mit`);
+                addLog(`${p.name} geht mit.`);
               } else {
                 setPassExplicit(pid);
-                context = `${p.name} passt.`;
+                contextParts.push(`${p.name} passt`);
+                addLog(`${p.name} passt.`);
               }
             }
             onlineMitStageDone = true;
+            onlineExchangeStageDone = false;
+          }
+        }
+
+        // 4) Tausch reihum in der zentralen Fragebox
+        if (phase === 'open_cards' && !tenHackForced && onlineMitStageDone && !onlineExchangeStageDone) {
+          const hackerEl = document.querySelector('input[name="hacker"]:checked');
+          if (hackerEl) {
+            const queue = computeExchangeQueue();
+            exchangeQueue = [...queue];
+            exchangeQueueIndex = 0;
+            updateExchangeButtons();
+
+            for (let i = 0; i < queue.length; i++) {
+              if (phase !== 'open_cards') break;
+              const pid = queue[i];
+              const p = players.find(x => x.id === pid);
+              if (!p) continue;
+
+              document.getElementById('roundInfo').textContent = `${p.name} ist dran: Tauschen.`;
+              syncRuntimeState();
+
+              const ans = await askOnlinePlayerDecision({
+                type: 'exchange',
+                playerId: pid,
+                title: `${p.name} – Tauschen`,
+                subtitle: 'Wähle Karten in der Mitte aus und klicke „Tausch ausführen“. Ohne Auswahl: „Kein Tausch“.',
+                buttons: [
+                  { label: 'Kein Tausch', value: 'skip' },
+                  { label: 'Tausch ausführen', value: 'exchange' }
+                ],
+                defaultValue: 'skip',
+                timeoutMs: 30000,
+                showPlayerHands: true
+              });
+
+              const action = (ans && typeof ans === 'object') ? ans.action : ans;
+              const selectedIndices = (ans && typeof ans === 'object' && Array.isArray(ans.selectedIndices))
+                ? ans.selectedIndices
+                : [];
+
+              if (action === 'exchange' && selectedIndices.length > 0) {
+                applyExchangeSelectionForPlayer(pid, selectedIndices);
+              } else {
+                addLog(`${p.name} tauscht keine Karten.`);
+              }
+
+              exchangeQueueIndex = i + 1;
+              syncRuntimeState();
+            }
+
+            onlineExchangeStageDone = true;
+
+            if (phase === 'open_cards') {
+              addLog('Tauschphase abgeschlossen. Stichrunde startet automatisch.');
+              startTrickPhase();
+            }
           }
         }
       } finally {
@@ -1550,6 +1637,7 @@
       moderatorLines.push(`[${t}] ${msg}`);
       if (moderatorLines.length > 250) moderatorLines = moderatorLines.slice(-250);
       renderModeratorLog();
+      if (online.enabled && isOnlineHost()) syncRuntimeState(true);
     }
 
     function renderModeratorLog() {
@@ -1640,6 +1728,8 @@
         if (online.enabled) {
           btnReveal.disabled = true;
           btnNextTrump.disabled = true;
+          btnExchange.disabled = true;
+          btnStart.disabled = true;
           btnPrompt.disabled = true;
         }
       }
@@ -1743,6 +1833,7 @@
         online.lastSnapshotHash = '';
         onlinePrompt = null;
         onlineMitStageDone = false;
+        onlineExchangeStageDone = false;
         setOnlineStatus('Offline');
         setOnlineRoomInfo('Noch kein Raum verbunden.');
       }
@@ -1837,6 +1928,7 @@
       tricksPlayed = 0;
       onlinePrompt = null;
       onlineMitStageDone = false;
+      onlineExchangeStageDone = false;
       trickTurnStartedAt = 0;
       trickTurnPlayerId = null;
       trickResolveLock = false;
@@ -2319,7 +2411,7 @@
       btnDone.id = 'btn-done-' + p.id;
       btnDone.onclick = () => markExchangeDone(p.id);
 
-      if (online.enabled && !isLocalControl) {
+      if (online.enabled) {
         btnBlind.disabled = true;
         btnHack.disabled = true;
         btnMit.disabled = true;
@@ -2686,6 +2778,7 @@ updateExchangeButtons();
       trickTurnStartedAt = 0;
       trickTurnPlayerId = null;
       onlineMitStageDone = false;
+      onlineExchangeStageDone = false;
       blindHackerId = null;
       modeExchange = false;
       exchangePlayerId = null;
@@ -3009,9 +3102,15 @@ function openNextExchangeTurnIfAny() {
   }
 
   updateExchangeButtons();
-  document.getElementById('roundInfo').textContent =
-    'Alle beteiligten Spieler sind fertig mit dem Tausch.\n' +
-    'Als nächstes: Stichrunde starten.';
+  document.getElementById('roundInfo').textContent = online.enabled
+    ? 'Alle beteiligten Spieler sind fertig mit dem Tausch.\nDie Stichrunde startet automatisch.'
+    : 'Alle beteiligten Spieler sind fertig mit dem Tausch.\nAls nächstes: Stichrunde starten.';
+  if (online.enabled && isOnlineHost() && phase === 'open_cards') {
+    addLog('Alle beteiligten Spieler sind mit dem Tausch fertig. Stichrunde startet automatisch.');
+    setTimeout(() => {
+      if (phase === 'open_cards' && !modeExchange) startTrickPhase();
+    }, 220);
+  }
 }
 
 function executeExchange() {
@@ -3124,6 +3223,60 @@ function executeExchange() {
   }
 
   updateExchangeButtons();
+}
+
+function applyExchangeSelectionForPlayer(playerId, selectedIndices) {
+  const p = players.find(pl => pl.id === playerId);
+  if (!p) return false;
+
+  let indices = Array.from(new Set((selectedIndices || []).map(v => Number(v))))
+    .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < p.hand.length)
+    .sort((a, b) => a - b);
+
+  if (!indices.length) {
+    addLog(`${p.name} tauscht keine Karten.`);
+    return false;
+  }
+
+  const isBlindHacker = (playerId === blindHackerId && p.hand.length === 5);
+  if (isBlindHacker) {
+    if (indices.length < 1 || indices.length > 4) {
+      addLog(`${p.name}: ungültiger Blind-Tausch (erlaubt 1-4 Karten). Es wird kein Tausch ausgeführt.`);
+      return false;
+    }
+    const drawCount = indices.length - 1;
+    if (drawCount > deck.length) {
+      addLog(`${p.name}: zu wenig Karten im Stapel für Blind-Tausch. Es wird kein Tausch ausgeführt.`);
+      return false;
+    }
+
+    indices.slice().sort((a, b) => b - a).forEach(idx => p.hand.splice(idx, 1));
+    for (let i = 0; i < drawCount; i++) {
+      if (deck.length > 0) p.hand.push(deck.shift());
+    }
+    if (p.hand.length !== 4) p.hand = p.hand.slice(0, 4);
+    sortHand(p.hand);
+
+    if (indices.length === 4) addLog(`${p.name} braucht einen Reifenwechsel (4 Karten gewechselt – Blind-Tausch).`);
+    else addLog(`${p.name} tauscht ${indices.length} Karte(n) (Blind-Tausch).`);
+    updateTableHands();
+    return true;
+  }
+
+  if (indices.length > deck.length) {
+    addLog(`${p.name}: zu wenig Karten im Stapel zum Tauschen. Es wird kein Tausch ausgeführt.`);
+    return false;
+  }
+
+  indices.forEach(idx => {
+    if (deck.length > 0 && p.hand[idx]) p.hand[idx] = deck.shift();
+  });
+  sortHand(p.hand);
+
+  if (indices.length === 4) addLog(`${p.name} braucht einen Reifenwechsel (4 Karten gewechselt).`);
+  else addLog(`${p.name} tauscht ${indices.length} Karte(n).`);
+  updateTableHands();
+  return true;
 }
 
 
@@ -3301,6 +3454,7 @@ function playCard(playerId, cardIndex, forceSystem = false) {
 
   updateTableHands();
   updateCurrentTrickDisplay();
+  syncRuntimeState();
 
   addLog(`${p.name} spielt ${card.rank} ${suitNameDe(card.suit)}.`);
 
@@ -3321,6 +3475,7 @@ function playCard(playerId, cardIndex, forceSystem = false) {
     // Stich kurz vollständig anzeigen (auch letzte Karte bei 2/3 Spielern sichtbar)
     trickResolveLock = true;
     updateCurrentTrickDisplay();
+    syncRuntimeState();
     setTimeout(() => {
       currentTrick = [];
       updateTrickCountersUI();
@@ -3331,6 +3486,7 @@ function playCard(playerId, cardIndex, forceSystem = false) {
       trickTurnStartedAt = Date.now();
       updateCurrentTurnHighlight();
       updateCurrentTrickDisplay();
+      syncRuntimeState();
 
       if (tricksPlayed >= 4) {
         players.forEach(pl => {
@@ -3393,7 +3549,7 @@ function determineTrickWinner() {
       if (overlay) overlay.style.display = 'none';
     }
 
-    function openModal({ title, subtitle, buttons, showPlayerHands = false, currentPlayerId = null }) {
+    function openModal({ title, subtitle, buttons, showPlayerHands = false, currentPlayerId = null, exchangeMode = false }) {
       const overlay = document.getElementById('modalOverlay');
       const btnBox = document.getElementById('modalButtons');
       const t = document.getElementById('modalTitle');
@@ -3401,19 +3557,10 @@ function determineTrickWinner() {
       const trumpText = document.getElementById('modalTrumpText');
       const trumpCard = document.getElementById('modalTrumpCard');
       const playerHandsDiv = document.getElementById('modalPlayerHands');
+      let getMeta = null;
 
       t.textContent = title || 'Entscheidung';
       sub.textContent = subtitle || '';
-
-      btnBox.innerHTML = '';
-      buttons.forEach(b => {
-        const el = document.createElement('button');
-        el.className = 'small-btn';
-        el.type = 'button';
-        el.textContent = b.label;
-        el.onclick = () => { closeModal(); b.onClick(); };
-        btnBox.appendChild(el);
-      });
 
       trumpCard.className = 'card-small empty';
       trumpCard.innerHTML = '';
@@ -3435,7 +3582,9 @@ function determineTrickWinner() {
           handDiv.style.cssText = 'margin-bottom:8px; padding:12px; background:#0f172a; border-radius:6px; font-size:0.85rem; border:1px solid #1f3a3a;';
           const nameEl = document.createElement('div');
           nameEl.style.cssText = 'font-weight:600; color:#4ade80; margin-bottom:8px; font-size:0.95rem;';
-          nameEl.textContent = `${currentPlayer.name} – deine Karten:`;
+          nameEl.textContent = exchangeMode
+            ? `${currentPlayer.name} – deine Karten (zum Tauschen markieren):`
+            : `${currentPlayer.name} – deine Karten:`;
           handDiv.appendChild(nameEl);
 
           const cardsEl = document.createElement('div');
@@ -3445,12 +3594,33 @@ function determineTrickWinner() {
           cardsEl.style.justifyContent = 'center';
 
           if (currentPlayer.hand && currentPlayer.hand.length > 0) {
-            currentPlayer.hand.forEach(card => {
+            const selected = new Set();
+            currentPlayer.hand.forEach((card, idx) => {
               const cardDiv = document.createElement('div');
               cardDiv.className = 'card-small ' + (isRedSuit(card.suit) ? 'red' : 'black');
+              cardDiv.style.transform = 'scale(1.12)';
+              cardDiv.style.transformOrigin = 'center';
+              cardDiv.style.margin = '2px';
               renderCardFace(cardDiv, card);
+              if (exchangeMode) {
+                cardDiv.style.cursor = 'pointer';
+                cardDiv.onclick = () => {
+                  if (selected.has(idx)) {
+                    selected.delete(idx);
+                    cardDiv.classList.remove('selected');
+                  } else {
+                    selected.add(idx);
+                    cardDiv.classList.add('selected');
+                  }
+                };
+              }
               cardsEl.appendChild(cardDiv);
             });
+            if (exchangeMode) {
+              getMeta = () => ({
+                selectedIndices: Array.from(selected).sort((a, b) => a - b)
+              });
+            }
           } else {
             cardsEl.textContent = '(Keine Karten)';
           }
@@ -3461,6 +3631,20 @@ function determineTrickWinner() {
       } else {
         playerHandsDiv.style.display = 'none';
       }
+
+      btnBox.innerHTML = '';
+      buttons.forEach(b => {
+        const el = document.createElement('button');
+        el.className = 'small-btn';
+        el.type = 'button';
+        el.textContent = b.label;
+        el.onclick = () => {
+          const meta = getMeta ? getMeta() : null;
+          closeModal();
+          b.onClick(meta);
+        };
+        btnBox.appendChild(el);
+      });
 
       overlay.style.display = 'flex';
     }
@@ -4067,23 +4251,13 @@ function markExchangeDone(playerId) {
 
 openNextExchangeTurnIfAny();
 
-if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
-  addLog('Autopilot: Alle fertig → Stichrunde startet.');
-  setTimeout(startTrickPhase, 80);
-}
-
-
-  // Alle fertig -> Autopilot startet Stichrunde
-  document.getElementById('roundInfo').textContent =
-    'Alle beteiligten Spieler sind fertig mit dem Tausch.\n' +
-    'Als nächstes: Stichrunde starten.';
-  updateTableHands();
-  updateExchangeButtons();
-
-  if (window.autopilot) {
+  if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
     addLog('Autopilot: Alle fertig → Stichrunde startet.');
     setTimeout(startTrickPhase, 80);
   }
+
+  updateTableHands();
+  updateExchangeButtons();
 }
 
     function exportRuntimeState() {
@@ -4138,6 +4312,8 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
         currentActiveIndex,
         tricksPlayed,
         onlinePrompt: onlinePrompt ? JSON.parse(JSON.stringify(onlinePrompt)) : null,
+        onlineMitStageDone,
+        onlineExchangeStageDone,
         trickTurnStartedAt,
         trickTurnPlayerId,
         moderatorLines: Array.isArray(moderatorLines) ? [...moderatorLines] : [],
@@ -4198,6 +4374,8 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
         currentActiveIndex = Number(state.currentActiveIndex) || 0;
         tricksPlayed = Number(state.tricksPlayed) || 0;
         onlinePrompt = state.onlinePrompt ? JSON.parse(JSON.stringify(state.onlinePrompt)) : null;
+        onlineMitStageDone = !!state.onlineMitStageDone;
+        onlineExchangeStageDone = !!state.onlineExchangeStageDone;
         trickTurnStartedAt = Number(state.trickTurnStartedAt) || 0;
         trickTurnPlayerId = state.trickTurnPlayerId || null;
         trickResolveLock = false;
@@ -4229,7 +4407,6 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
           updateCurrentTurnHighlight();
           updatePhaseUI();
           updateExchangeButtons();
-          renderModeratorLog();
 
           const roleState = state.roleState || {};
           players.forEach(p => {
@@ -4263,6 +4440,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
           if (autoToggle) autoToggle.checked = window.autopilot;
           switchView(state.ui?.activeView === 'admin' ? 'admin' : 'table');
         }
+        renderModeratorLog();
       } finally {
         const snap = JSON.stringify(exportRuntimeState());
         online.lastSnapshotHash = snap;
@@ -4270,7 +4448,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
       }
     }
 
-    function syncRuntimeState() {
+    function syncRuntimeState(force = false) {
       if (!online.enabled || !online.connected || !online.socket || !online.roomCode) return;
       if (online.isApplyingRemote) return;
       if (!players.length) return;
@@ -4279,7 +4457,7 @@ if (exchangeQueueIndex >= exchangeQueue.length && window.autopilot) {
       const hash = JSON.stringify(snapshot);
       if (hash === online.lastSnapshotHash) return;
       const now = Date.now();
-      if (now - online.lastSentAt < 220) return;
+      if (!force && now - online.lastSentAt < 220) return;
 
       online.lastSnapshotHash = hash;
       online.lastSentAt = now;

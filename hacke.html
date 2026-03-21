@@ -820,6 +820,7 @@
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script>
     const STORAGE_KEY = 'hackeScoreState';
+    const STORAGE_VERSION = 2;
     const ONLINE_PREFS_KEY = 'hackeOnlinePrefs';
 
     let players = [];
@@ -923,6 +924,41 @@
         };
         localStorage.setItem(ONLINE_PREFS_KEY, JSON.stringify(data));
       } catch (e) {}
+    }
+
+    function isFullRuntimeSave(state) {
+      return !!state && typeof state === 'object' && Number(state.version) >= 2 && !!state.runtime;
+    }
+
+    function migrateLegacySave(state) {
+      if (!state || typeof state !== 'object') return null;
+      if (isFullRuntimeSave(state)) return state;
+      return {
+        version: 1,
+        savedAt: Date.now(),
+        scoreOnly: true,
+        legacy: state
+      };
+    }
+
+    function requestLatestRoomState() {
+      if (!online.socket || !online.connected || !online.roomCode) return;
+      online.socket.emit('room:request_state', { roomCode: online.roomCode }, (res) => {
+        if (!res || !res.ok) return;
+        applyRoomMeta(res.room);
+        if (res.state) applyRuntimeState(res.state, { fromRemote: true });
+      });
+    }
+
+    function resumeOnlineSessionIfConfigured() {
+      const cfg = getOnlineFormValues();
+      if (!cfg.enabled || !cfg.roomCode) return;
+      const socket = connectOnlineSocket(cfg.serverUrl);
+      if (!socket) return;
+      if (online.connected) {
+        tryRejoinRoomAfterReconnect();
+        requestLatestRoomState();
+      }
     }
 
     function getDefaultServerUrl() {
@@ -1503,6 +1539,7 @@
         if (!res || !res.ok) return;
         applyRoomMeta(res.room);
         if (res.state) applyRuntimeState(res.state, { fromRemote: true });
+        else requestLatestRoomState();
       });
     }
 
@@ -1525,12 +1562,13 @@
       let fallbackAttempted = false;
       online.socket = buildSocket(false);
 
-      online.socket.on('connect', () => {
-        online.connected = true;
-        refreshLocalPlayerId();
-        setOnlineStatus(`Verbunden (${online.socket.id})`);
-        tryRejoinRoomAfterReconnect();
-      });
+        online.socket.on('connect', () => {
+          online.connected = true;
+          refreshLocalPlayerId();
+          setOnlineStatus(`Verbunden (${online.socket.id})`);
+          tryRejoinRoomAfterReconnect();
+          requestLatestRoomState();
+        });
 
       online.socket.on('disconnect', () => {
         online.connected = false;
@@ -1551,6 +1589,7 @@
             refreshLocalPlayerId();
             setOnlineStatus(`Verbunden via HTTP-Polling (${online.socket.id})`);
             tryRejoinRoomAfterReconnect();
+            requestLatestRoomState();
           });
           online.socket.on('disconnect', () => {
             online.connected = false;
@@ -4642,21 +4681,20 @@ openNextExchangeTurnIfAny();
       runOnlineCoordinator().catch(() => {});
       checkOnlineTrickTimeout();
     }, 250);
+    setInterval(() => {
+      if (players.length) saveState();
+    }, 1000);
+    window.addEventListener('beforeunload', () => {
+      if (players.length) saveState();
+    });
 
-    // --- Speicherung: nur Score / Pot / History ---
+    // --- Speicherung / Resume ---
     function saveState() {
       if (!players.length) return;
       const state = {
-        baseStake,
-        players: players.map(p => ({ id: p.id, name: p.name, balance: p.balance, socketId: p.socketId || null })),
-        pot,
-        roundNumber,
-        historyRows,
-        rules: {
-          tenHack: !!ruleTenHackEnabled,
-          nineHack: !!ruleNineHackEnabled,
-          sixHack: !!ruleSixHackEnabled
-        }
+        version: STORAGE_VERSION,
+        savedAt: Date.now(),
+        runtime: exportRuntimeState()
       };
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
       catch (e) { console.warn('Speichern fehlgeschlagen', e); }
@@ -4734,17 +4772,40 @@ openNextExchangeTurnIfAny();
       switchView('table');
     }
 
+    function restoreSavedState(payload) {
+      const migrated = migrateLegacySave(payload);
+      if (!migrated) return false;
+
+      if (isFullRuntimeSave(migrated)) {
+        applyRuntimeState(migrated.runtime, { fromRemote: false });
+        renderModeratorLog();
+        addLog('Gespeichertes Spiel geladen. Runde wurde vollständig wiederhergestellt.');
+        if (migrated.runtime?.ui?.roundInfoText) {
+          document.getElementById('roundInfo').textContent = migrated.runtime.ui.roundInfoText;
+        }
+        return true;
+      }
+
+      if (migrated.legacy) {
+        restoreSavedScoreState(migrated.legacy);
+        return true;
+      }
+
+      return false;
+    }
+
     window.addEventListener('load', () => {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const data = JSON.parse(raw);
+          const data = migrateLegacySave(JSON.parse(raw));
           const use = confirm('Es wurde ein gespeichertes Spiel gefunden. Möchtest du es fortsetzen?');
-          if (use) restoreSavedScoreState(data);
+          if (use) restoreSavedState(data);
         }
       } catch (e) {
         console.warn('Fehler beim Laden des gespeicherten Spiels', e);
       }
+      resumeOnlineSessionIfConfigured();
     });
   </script>
 </body>
